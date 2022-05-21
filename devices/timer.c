@@ -50,6 +50,7 @@ void
 timer_calibrate (void) {
 	unsigned high_bit, test_bit;
 
+	// intr_get_level : 현재 인터럽트 상태를 반환합니다. interrupt enable 
 	ASSERT (intr_get_level () == INTR_ON);
 	printf ("Calibrating timer...  ");
 
@@ -73,8 +74,10 @@ timer_calibrate (void) {
 /* Returns the number of timer ticks since the OS booted. */
 int64_t
 timer_ticks (void) {
+	// intr_disable : 인터럽트를 끕니다. 이전 인터럽트 상태를 반환합니다.
 	enum intr_level old_level = intr_disable ();
 	int64_t t = ticks;
+	// intr_set_level : 레벨에 따라 인터럽트를 켜거나 끕니다.
 	intr_set_level (old_level);
 	barrier ();
 	return t;
@@ -91,10 +94,14 @@ timer_elapsed (int64_t then) {
 void
 timer_sleep (int64_t ticks) {
 	int64_t start = timer_ticks ();
-
+	// intr_get_level : 현재 인터럽트 상태를 반환합니다.
 	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+	// 🔥
+	/* 새로 구현한 thread를 sleep queue에 삽입하는 함수를 호출 */
+	 if(timer_elapsed (start) < ticks)
+        thread_sleep(start + ticks);
+	// while (timer_elapsed (start) < ticks)
+	// 	thread_yield ();
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -126,10 +133,15 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();
+	thread_awake (ticks);
+	/* 매 tick마다 sleep queue에서 깨어날 thread가 있는지 확인하여,
+		 깨우는 함수를 호출하도록 한다. */
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */
+	 // 수상
 static bool
 too_many_loops (unsigned loops) {
 	/* Wait for a timer tick. */
@@ -157,6 +169,7 @@ static void NO_INLINE
 busy_wait (int64_t loops) {
 	while (loops-- > 0)
 		barrier ();
+
 }
 
 /* Sleep for approximately NUM/DENOM seconds. */

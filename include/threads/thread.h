@@ -15,7 +15,8 @@ enum thread_status {
 	THREAD_RUNNING,     /* Running thread. */
 	THREAD_READY,       /* Not running but ready to run. */
 	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-	THREAD_DYING        /* About to be destroyed. */
+	THREAD_DYING       /* About to be destroyed. */
+	// THREAD_SLEEP				/* 🔥 */
 };
 
 /* Thread identifier type.
@@ -91,6 +92,7 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	int64_t tick; 													/* 🔥 깨어냐야 할 tick을 저장할 변수 */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
@@ -125,6 +127,13 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
+
+// 🔥
+void thread_sleep(int64_t ticks); 						 // 실행 중인 스레드를 슬립으로 만듦
+void thread_awake(int64_t ticks); 						 // 슬립큐에서 깨워야할 스레드를 깨움
+void update_next_tick_to_awake(int64_t ticks); //최소 틱을 가진 스레드 저장
+int64_t get_next_tick_to_awake(void); 				 // thread.c의 next_tick_to_awake 반환
+// 🔥
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);

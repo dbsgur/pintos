@@ -32,7 +32,7 @@ static struct list ready_list;
 static struct list sleep_list;
 
 // 🔥 대기중인 스레드들의 wakeup_tick 값 중 최소값을 저장
-static int64_t next_tick_to_awake;
+static int64_t next_tick_to_awake = INT64_MAX;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -114,7 +114,7 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
-	list_init (&sleep_list); // 🔥
+	list_init (&sleep_list); //
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -248,10 +248,7 @@ thread_unblock (struct thread *t) {
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 	list_push_back (&ready_list, &t->elem);
-	// 🔥
-	// list_push_back(&sleep_list, &t->elem);
 	t->status = THREAD_READY;
-	// t->status = THREAD_SLEEP;
 	intr_set_level (old_level);
 }
 
@@ -430,7 +427,7 @@ init_thread (struct thread *t, const char *name, int priority) {
    empty.  (If the running thread can continue running, then it
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
-static struct thread * 	// 🔥
+static struct thread *
 next_thread_to_run (void) {
 	if (list_empty (&ready_list))
 		return idle_thread;
@@ -608,59 +605,74 @@ allocate_tid (void) {
 void thread_sleep(int64_t ticks){
 	struct thread *t = thread_current ();
 	enum intr_level old_level;
-	// ASSERT (!intr_context ()); 
+	ASSERT (!intr_context ()); 
 	/* 해당 과정중에는 인터럽트를 받아들이지 않는다. */
 	old_level = intr_disable ();
 	// 현재 스레드가 idle thread가 아닐경우
 	if (t != idle_thread){
+		t->tick = ticks;
 		// thread 상태를 BLOCKED로 바꾸고 깨어나야할 ticks를 저장
-		t->status = THREAD_BLOCKED;
+		// t->status = THREAD_BLOCKED;
 		// 쓰레드 구조체 안에 내가 몇 틱에서 깨야되는지 정보를 가지고 있다.
 		// 그래야 슬립 리스트에 깨워야 할 놈을 체크하기 위해
-		t->tick = ticks;
 		// sleep queue에 삽입하고
 		list_push_back(&sleep_list, &t->elem);
-		// awake 함수가 실행되어야할 tick값을 update 👇?
-		thread_awake(&t->tick);
+		// struct thread *p;
+		// p = list_entry(list_front(&sleep_list), struct thread, elem);
+		// printf("polled %lld ticks \n", p->tick);
+		// update_next_tick_to_awake 함수가 실행되어야할 tick값을 update 👇?
+		if (ticks < get_next_tick_to_awake()){
+			update_next_tick_to_awake(ticks);
+		}
 	}
 	/* 현재 스레드를 슬립 큐에 삽입한 후에 스케줄한다. */
 	do_schedule (THREAD_BLOCKED);
 	intr_set_level (old_level);
 }
 // 슬립큐에서 깨워야할 스레드를 깨움
-void thread_awake(int64_t ticks){
-	if(list_empty (&sleep_list))
-		return;
+void thread_awake(int64_t ticks){		
 	/* sleep list의 모든 entry 를 순회하며 다음과 같은 작업을 수행한다.
 	현재 tick이 깨워야 할 tick 보다 크거나 같다면 슬립 큐에서 제거하고
 	unblock 한다.
 	작다면 update_next_tick_to_awake() 를 호출한다.
 	*/
-	else{
-		struct list_elem *prev = list_begin(&sleep_list);
-		struct thread * curr;
-		while(1){
-			curr = list_entry(prev, struct thread, elem);
-			// pop
-			if(idle_ticks <= &curr->tick){
-				prev = list_next(&prev);
-				thread_unblock (curr);
-				list_remove(&prev);
-				list_push_back(&sleep_list, &prev);
-				continue;
+
+	if (!list_empty (&sleep_list)){
+		struct list_elem * curr = list_begin (&sleep_list);
+		struct thread * curr_thread;
+		while(list_end (&sleep_list) != curr){
+			curr_thread = list_entry(curr, struct thread, elem);
+			if(curr_thread->tick <= ticks){
+				curr = list_remove(curr);
+				thread_unblock (curr_thread);
+				// update_next_tick_to_awake(ticks);
+			}else{
+				curr = list_next(curr);
 			}
-			update_next_tick_to_awake(&curr->tick);
-			prev = list_next(&prev);
 		}
 	}
 }
+// void
+// thread_awake (int64_t ticks)
+// {
+//   struct list_elem *e = list_begin (&sleep_list);
+//   while (e != list_end (&sleep_list)){
+//     struct thread *t = list_entry (e, struct thread, elem);
+//     if (t->wakeup_tick <= ticks){   // 스레드가 일어날 시간이 되었는지 확인
+//       e = list_remove (e);  // sleep list 에서 제거
+//       thread_unblock (t);   // 스레드 unblock
+//     }
+//     else
+//       e = list_next (e);
+//   }
+// }
 //최소 틱을 가진 스레드 저장
 void update_next_tick_to_awake(int64_t ticks){
 	/* next_tick_to_awake 가 깨워야 할 스레드중 가장 작은 tick을 갖도록
 	업데이트 한다 */
-	if(next_tick_to_awake == 0){
-		next_tick_to_awake = ticks;
-	}
+	// if(next_tick_to_awake == 0){
+	// 	next_tick_to_awake = ticks;
+	// }
 	if(ticks < next_tick_to_awake){
 		next_tick_to_awake = ticks;
 	}

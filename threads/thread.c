@@ -640,18 +640,18 @@ void thread_awake(int64_t ticks){
 		struct list_elem *prev = list_begin(&sleep_list);
 		struct thread * curr;
 		while(1){
-			update_next_tick_to_awake(prev->tick);
 			curr = list_entry(prev, struct thread, elem);
 			// pop
-			if(idle_ticks <= curr->tick){
+			if(idle_ticks <= &curr->tick){
 				prev = list_next(&prev);
+				thread_unblock (curr);
 				list_remove(&prev);
-				list_push_back(&sleep_list, &prev)
+				list_push_back(&sleep_list, &prev);
 				continue;
 			}
+			update_next_tick_to_awake(&curr->tick);
 			prev = list_next(&prev);
-			update_next_tick_to_awake(prev->tick);
-			
+		}
 	}
 }
 //최소 틱을 가진 스레드 저장

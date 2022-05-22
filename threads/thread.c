@@ -211,9 +211,14 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	/* Add to run queue. */
+	/* Add to ready queue. */
 	thread_unblock (t);
 
+	/*생성된 스레드의 우선순위가 현재 실행중인 스레드의 우선순위 보다 높다면 CPU를 양보한다 */
+	struct thread * curr = thread_current ();
+	if(priority > curr->priority) {
+		thread_yield();
+	}
 	return tid;
 }
 
@@ -247,7 +252,9 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+
+	// list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -310,25 +317,45 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
-		// 🔥
-		// list_push_back (&sleep_list, &curr->elem);
-		// 🔥
-	// do_schedule (THREAD_SLEEP);
+		// list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
 
+/* 인자로 주어진 스레드들의 우선순위를 비교 */
+/* 첫 번째 인자의 우선순위가 높으면 true을 반환, 두 번째 인자의 우선순위가 높으면 false을 반환 */
+bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+	if(list_entry(a, struct thread, elem)-> priority >= list_entry(b, struct thread, elem)->priority) {
+		return true;
+	}
+	return false;
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
+/* Priority Scheduling에서 수정 : 우선순위가 변경되었을 때 우선순위에 따라 선점이 발생한다 */
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	test_max_priority();
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) {
 	return thread_current ()->priority;
+}
+
+/* ready_list에서 우선순위가 가장 높은 스레드와 현재 스레드의
+우선순위를 비교하여 스케줄링 한다. (ready_list 가 비어있지 않은지 확인) */
+void
+test_max_priority (void) {
+	if(!list_empty(&ready_list)) {
+		struct thread *front_thread  = list_entry(list_front(&ready_list), struct thread, elem);
+		if(front_thread->priority > thread_current()->priority) {
+			thread_yield();
+		}
+	}
 }
 
 /* Sets the current thread's nice value to NICE. */

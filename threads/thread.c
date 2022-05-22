@@ -652,27 +652,11 @@ void thread_awake(int64_t ticks){
 		}
 	}
 }
-// void
-// thread_awake (int64_t ticks)
-// {
-//   struct list_elem *e = list_begin (&sleep_list);
-//   while (e != list_end (&sleep_list)){
-//     struct thread *t = list_entry (e, struct thread, elem);
-//     if (t->wakeup_tick <= ticks){   // 스레드가 일어날 시간이 되었는지 확인
-//       e = list_remove (e);  // sleep list 에서 제거
-//       thread_unblock (t);   // 스레드 unblock
-//     }
-//     else
-//       e = list_next (e);
-//   }
-// }
+
 //최소 틱을 가진 스레드 저장
 void update_next_tick_to_awake(int64_t ticks){
 	/* next_tick_to_awake 가 깨워야 할 스레드중 가장 작은 tick을 갖도록
 	업데이트 한다 */
-	// if(next_tick_to_awake == 0){
-	// 	next_tick_to_awake = ticks;
-	// }
 	if(ticks < next_tick_to_awake){
 		next_tick_to_awake = ticks;
 	}

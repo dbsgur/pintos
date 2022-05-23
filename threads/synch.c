@@ -41,7 +41,7 @@
 
    - up or "V": increment the value (and wake up one waiting
    thread, if any). */
-void
+void	// 세마포어 초기화 함수
 sema_init (struct semaphore *sema, unsigned value) {
 	ASSERT (sema != NULL);
 
@@ -57,7 +57,7 @@ sema_init (struct semaphore *sema, unsigned value) {
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. This is
    sema_down function. */
-void
+void	
 sema_down (struct semaphore *sema) {
 	enum intr_level old_level;
 
@@ -65,7 +65,7 @@ sema_down (struct semaphore *sema) {
 	ASSERT (!intr_context ());
 
 	old_level = intr_disable ();
-	while (sema->value == 0) {
+	while (sema->value == 0) {		// 현재 자원이 없으면 while 돌면서 스레드를 waiters 리스트의 맨 끝에 삽입, block (fifo)
 		list_push_back (&sema->waiters, &thread_current ()->elem);
 		thread_block ();
 	}
@@ -150,7 +150,7 @@ sema_test_helper (void *sema_) {
 		sema_up (&sema[1]);
 	}
 }
-
+
 /* Initializes LOCK.  A lock can be held by at most a single
    thread at any given time.  Our locks are not "recursive", that
    is, it is an error for the thread currently holding a lock to
@@ -235,7 +235,7 @@ lock_held_by_current_thread (const struct lock *lock) {
 
 	return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem {
 	struct list_elem elem;              /* List element. */

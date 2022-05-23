@@ -326,7 +326,7 @@ thread_yield (void) {
 /* 인자로 주어진 스레드들의 우선순위를 비교 */
 /* 첫 번째 인자의 우선순위가 높으면 true을 반환, 두 번째 인자의 우선순위가 높으면 false을 반환 */
 bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-	if(list_entry(a, struct thread, elem)-> priority >= list_entry(b, struct thread, elem)->priority) {
+	if(list_entry(a, struct thread, elem)-> priority > list_entry(b, struct thread, elem)->priority) {
 		return true;
 	}
 	return false;

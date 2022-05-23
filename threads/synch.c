@@ -313,7 +313,7 @@ void cond_wait(struct condition *cond, struct lock *lock)
 	sema_init(&waiter.semaphore, 0);
 	/* condition variable의 waiters list에 우선순위 순서로
 	삽입되도록 수정 */
-	list_insert_ordered(&cond->waiters, &waiter.elem, cmp_sem_priority, NULL);
+	list_insert_ordered(&cond->waiters, &waiter.elem, cmp_priority, NULL);
 	// list_push_back(&cond->waiters, &waiter.elem);
 	lock_release(lock);
 	sema_down(&waiter.semaphore);

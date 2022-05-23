@@ -115,7 +115,7 @@ void sema_up(struct semaphore *sema)
 	{
 		/* 스레드가 waiters list에 있는 동안 우선순위가 변경 되었을
 		경우를 고려 하여 waiters list 를 우선순위로 정렬 한다. */
-		list_sort(&sema->waiters, cmp_sem_priority, NULL);
+		list_sort(&sema->waiters, cmp_priority, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 															struct thread, elem));
 	}
@@ -165,10 +165,11 @@ sema_test_helper(void *sema_)
 bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
 	// 🔥🔥
-	// struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
-	// struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
-	struct thread *ta = list_entry(a, struct thread, elem);
-	struct thread *tb = list_entry(b, struct thread, elem);
+	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
+	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+
+	struct thread *ta = list_entry(list_front(&(&sa->semaphore)->waiters), struct thread, elem);
+	struct thread *tb = list_entry(list_front(&(&sb->semaphore)->waiters), struct thread, elem);
 	if (ta->priority > tb->priority)
 	{
 		return true;
@@ -178,7 +179,6 @@ bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void
 		return false;
 	}
 }
-
 /* Initializes LOCK.  A lock can be held by at most a single
 	 thread at any given time.  Our locks are not "recursive", that
 	 is, it is an error for the thread currently holding a lock to
@@ -265,11 +265,11 @@ bool lock_held_by_current_thread(const struct lock *lock)
 }
 
 /* One semaphore in a list. */
-struct semaphore_elem
-{
-	struct list_elem elem;			/* List element. */
-	struct semaphore semaphore; /* This semaphore. */
-};
+// struct semaphore_elem
+// {
+// 	struct list_elem elem;			/* List element. */
+// 	struct semaphore semaphore; /* This semaphore. */
+// };
 
 /* Initializes condition variable COND.  A condition variable
 	 allows one piece of code to signal a condition and cooperating
@@ -313,7 +313,7 @@ void cond_wait(struct condition *cond, struct lock *lock)
 	sema_init(&waiter.semaphore, 0);
 	/* condition variable의 waiters list에 우선순위 순서로
 	삽입되도록 수정 */
-	list_insert_ordered(&cond->waiters, &waiter.elem, cmp_sem_priority, NULL);
+	list_insert_ordered(&cond->waiters, &waiter.elem, cmp_priority, NULL);
 	// list_push_back(&cond->waiters, &waiter.elem);
 	lock_release(lock);
 	sema_down(&waiter.semaphore);

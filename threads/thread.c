@@ -337,6 +337,11 @@ bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *a
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+
+	// take 
+	refresh_priority();
+	donate_priority();
+	refresh_priority();
 	test_max_priority();
 }
 
@@ -447,7 +452,42 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+
+	list_init(&t->donations);
+	t->init_priority = priority;
+	// t->wait_on_lock;
+
 }
+
+void donate_priority(void)
+{
+	/* priority donation 을 수행하는 함수를 구현한다.
+	현재 스레드가 기다리고 있는 lock 과 연결 된 모든 스레드들을 순회하며
+	현재 스레드의 우선순위를 lock 을 보유하고 있는 스레드에게 기부 한다.
+	(Nested donation 그림 참고, nested depth 는 8로 제한한다. ) */
+	int nested_depth = 8;
+	int i = 0 ;
+
+	struct thread *now = thread_current();
+
+	for (i = 0; i < nested_depth; i++ ){
+
+
+		// # 소설 2 장
+		if (now->wait_on_lock == NULL ){
+			break;
+		}
+
+		struct thread *th_prev = now->wait_on_lock->holder;	
+
+
+		// # 소설1 개막	(donations list에 우선순위로 들어가게.)
+		list_insert_ordered(&th_prev->donations, &now->donation_elem, cmp_priority, NULL);
+		th_prev->priority = now->priority;
+	}
+
+}
+
 
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
@@ -678,6 +718,48 @@ void thread_awake(int64_t ticks){
 			}
 		}
 	}
+}
+
+void remove_with_lock(struct lock *lock){
+
+	// # 소설3 lock_release 해줬겠지??
+
+	// # 소설4  밑 주석 두 줄 같은 말이겠지?
+	/* lock 을 해지 했을때 donations 리스트에서 해당 엔트리를
+	삭제 하기 위한 함수를 구현한다. */
+	/* 현재 스레드의 donations 리스트를 확인하여 해지 할 lock 을
+	보유하고 있는 엔트리를 삭제 한다. */
+
+	struct thread *thr_curr = thread_current();
+
+	if (!list_empty (&thr_curr->donations)){
+		struct list_elem * curr_elem = list_begin (&thr_curr->donations);
+		struct thread * del_thread;				
+		while(list_end (&thr_curr->donations) != curr_elem){
+			del_thread = list_entry(curr_elem, struct thread, donation_elem);
+			if(del_thread->wait_on_lock == lock){
+				curr_elem = list_remove(curr_elem);
+				// thread_unblock (del_thread);			
+				// update_next_tick_to_awake(ticks);
+			}else{
+				curr_elem = list_next(curr_elem);
+			}
+		}
+	}
+}
+
+void refresh_priority(void){
+
+	thread_current()->priority = thread_current()->init_priority;
+	
+	if (!(list_empty(&thread_current()->donations))){
+
+		struct thread *done = list_entry(list_begin(&thread_current()->donations), struct thread, donation_elem);
+		if (done->priority > thread_current()->init_priority){
+			thread_current()->init_priority = done->priority;
+		}
+	}
+
 }
 
 //최소 틱을 가진 스레드 저장

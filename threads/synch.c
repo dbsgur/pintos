@@ -210,11 +210,26 @@ void lock_init(struct lock *lock)
 	 interrupt handler.  This function may be called with
 	 interrupts disabled, but interrupts will be turned back on if
 	 we need to sleep. */
+
+
+	 /*
+	현재 스레드의 우선순위가 lock->holder의 우선순위보다 높
+아서
+	현재 스레드가 실행된 상태
+	 */
 void lock_acquire(struct lock *lock)
 {
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
+
+	if (&lock->holder != NULL){
+		thread_current()->wait_on_lock = &lock;
+		// (&lock->holder)->donations;
+
+		// struct thread *tb = list_entry(list_begin(&(&sb->semaphore)->waiters), struct thread, elem);
+		
+	}
 
 	sema_down(&lock->semaphore);
 	lock->holder = thread_current();
@@ -251,6 +266,10 @@ void lock_release(struct lock *lock)
 	ASSERT(lock_held_by_current_thread(lock));
 
 	lock->holder = NULL;
+
+	remove_with_lock(&lock);
+	refresh_priority();
+
 	sema_up(&lock->semaphore);
 }
 

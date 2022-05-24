@@ -210,13 +210,30 @@ void lock_init(struct lock *lock)
 	 interrupt handler.  This function may be called with
 	 interrupts disabled, but interrupts will be turned back on if
 	 we need to sleep. */
+
+	 //	FAIL tests/threads/priority-condvar		FAIL
 void lock_acquire(struct lock *lock)
 {
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 
+
+	// 소설1 if로 해보고 안 되면 while로 해보기
+	if (lock->holder != NULL){
+
+		struct thread *curr = thread_current();
+		curr->wait_on_lock = lock;		// 소설2 lock에서 & 유무
+		struct thread *lock_holder = lock->holder;
+
+		list_insert_ordered (&lock_holder->donations, &curr->donation_elem, cmp_priority, NULL);
+
+		donate_priority();		
+
+	}
+
 	sema_down(&lock->semaphore);
+	thread_current()->wait_on_lock = NULL;
 	lock->holder = thread_current();
 }
 
@@ -251,6 +268,10 @@ void lock_release(struct lock *lock)
 	ASSERT(lock_held_by_current_thread(lock));
 
 	lock->holder = NULL;
+
+	remove_with_lock(lock); 
+	refresh_priority();
+
 	sema_up(&lock->semaphore);
 }
 

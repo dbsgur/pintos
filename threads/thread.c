@@ -38,6 +38,9 @@ static struct list ready_list;
 // 🔥 sleep_list 생성
 static struct list sleep_list;
 
+// 🔥 all_list 생성
+static struct list all_list;
+
 // 🔥 대기중인 스레드들의 wakeup_tick 값 중 최소값을 저장
 static int64_t next_tick_to_awake = INT64_MAX;
 
@@ -122,6 +125,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&sleep_list); //
+	list_init (&all_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -218,7 +222,9 @@ thread_create (const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
-
+	
+	
+	list_push_back(&all_list, &t->all_elem);
 	/* Add to ready queue. */
 	thread_unblock (t);
 
@@ -310,6 +316,17 @@ thread_exit (void) {
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
+	if (!list_empty (&all_list)){
+		struct list_elem * curr = list_begin (&all_list);
+		struct thread * th_curr = thread_current();
+		while(list_end (&all_list) != curr){
+			if(&th_curr->all_elem == curr){
+				curr = list_remove(curr);
+			}else{
+				curr = list_next(curr);
+			}
+		}
+	}
 	do_schedule (THREAD_DYING);
 	NOT_REACHED ();
 }
@@ -344,6 +361,10 @@ bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *a
 /* Priority Scheduling에서 수정 : 우선순위가 변경되었을 때 우선순위에 따라 선점이 발생한다 */
 void
 thread_set_priority (int new_priority) {
+
+	if (thread_mlfqs){
+		return;
+	}
 	thread_current ()->priority = new_priority;
 	thread_current ()->init_priority = new_priority;
 
@@ -691,6 +712,7 @@ void thread_awake(int64_t ticks){
 			if(curr_thread->tick <= ticks){
 				curr = list_remove(curr);
 				thread_unblock (curr_thread);
+
 				// update_next_tick_to_awake(ticks);
 			}else{
 				curr = list_next(curr);
@@ -769,18 +791,72 @@ void refresh_priority(void)
 	}
 }
 
+void mlfqs_recent_cpu (struct thread *t)
+{
+/* 해당 스레드가 idle_thread 가 아닌지 검사 */
+/*recent_cpu계산식을 구현 (fixed_point.h의 계산함수 이용)*/
+
+	// recent_cpu = (2 * load_avg) / (2 * load_avg + 1) * recent_cpu + nice
+
+	if (t != idle_thread){
+	t->recent_cpu = ADD(MULTIPLE(DIVIDE(MULTIPLE(2, load_avg), (ADD(MULTIPLE(2, load_avg), 1))), t->recent_cpu), t->nice);
+	}
+
+}
+
+void mlfqs_load_avg (void){
+/* load_avg계산식을 구현 (fixed_point.h의 계산함수 이용) */
+/* load_avg 는 0 보다 작아질 수 없다.*/
+
+	int ready_threads = list_size(&ready_list);				// # 소설 1장
+	if (thread_current() != idle_thread){
+		ready_threads += 1;
+	}
+
+	//load_avg = (59/60) * load_avg + (1/60) * ready_threads
+	load_avg = ADD((MULTIPLE(DIVIDE(59, 60), load_avg)), (MULTIPLE(DIVIDE(1, 60), ready_threads)));		// ready_threads 만들기..
+
+	if (load_avg < 0){
+		load_avg = 0;
+	}
+
+}
+
+void mlfqs_increment (void)
+{
+/* 해당 스레드가 idle_thread 가 아닌지 검사 */
+/* 현재 스레드의 recent_cpu 값을 1증가 시킨다. */
+	if (thread_current() != idle_thread ){
+		thread_current()->recent_cpu += 1;
+	}
+}
+
+
 void mlfqs_priority (struct thread *t)
 {
 /* 해당 스레드가 idle_thread 가 아닌지 검사 */
 /*priority계산식을 구현 (fixed_point.h의 계산함수 이용)*/
 	if (t != idle_thread){
-		
+	// t->priority = PRI_MAX - (t->recent_cpu / 4) - (t->nice * 2);
+	t->priority = SUB_INT(PRI_MAX, SUB_INT(DIV_INT(t->recent_cpu, 4), MULT_INT(t->nice, 2)));
 	}
-
-
 }
 
+void mlfqs_recalc (void)
+{
+/* 모든 thread의 recent_cpu와 priority값 재계산 한다. */	
+	if (!list_empty (&all_list)){
+		struct list_elem * curr = list_begin (&all_list);
+		struct thread * curr_thread;
+		while(list_end (&all_list) != curr){
+			curr_thread = list_entry(curr, struct thread, all_elem);
+			mlfqs_priority(curr_thread);						// 소설 2		&curr 붙일 것인가 말 것인가?
+			mlfqs_recent_cpu(curr_thread);
+			curr = list_next(curr);
+		}
+	}
 
+}
 
 
 //최소 틱을 가진 스레드 저장

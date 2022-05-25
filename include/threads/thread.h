@@ -34,11 +34,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-void mlfqs_priority (struct thread *t);
-void mlfqs_recent_cpu (struct thread *t);
-void mlfqs_load_avg (void);
-void mlfqs_increment (void);
-void mlfqs_recalc (void);
+
 
 
 /* A kernel thread or user process.
@@ -115,9 +111,10 @@ struct thread
 	int nice;
 	int recent_cpu;
 
-
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
+	
+	struct list_elem all_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -182,4 +179,13 @@ void remove_with_lock(struct lock *lock);
 void refresh_priority(void);
 
 
+void mlfqs_priority (struct thread *t);
+void mlfqs_recent_cpu (struct thread *t);
+void mlfqs_load_avg (void);
+void mlfqs_increment (void);
+void mlfqs_recalc (void);
+
+
+
 #endif /* threads/thread.h */
+

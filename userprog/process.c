@@ -59,15 +59,20 @@ process_create_initd (const char *file_name) {
 	// 	printf(" '%s' \n",  token);
 	// }
 
-
+	
 	token = strtok_r (fn_copy, " ", &save_ptr);
-
+	// 인자가 없는 경우, space가 없어서 token이 NULL
 
 	puts("hello World\n");
 	printf("%s\n", fn_copy);
 
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	if(token != NULL){
+		tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
+	}
+	else{	// token이 NULL인 경우에는 file_name을 넘겨줌. (인자 없음)
+		tid =  thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	}
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	return tid;

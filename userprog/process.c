@@ -52,7 +52,7 @@ process_create_initd (const char *file_name) {
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE);
+	strlcpy (fn_copy, file_name, PGSIZE); // 깊은 복사
 
 	// for ( token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
 	// token = strtok_r (NULL, " ", &save_ptr)){
@@ -63,7 +63,7 @@ process_create_initd (const char *file_name) {
 	token = strtok_r (fn_copy, " ", &save_ptr);
 	// 인자가 없는 경우, space가 없어서 token이 NULL
 
-	puts("hello World\n");
+	// puts("hello World\n");
 	printf("%s\n", fn_copy);
 
 	/* Create a new thread to execute FILE_NAME. */
@@ -73,6 +73,7 @@ process_create_initd (const char *file_name) {
 	else{	// token이 NULL인 경우에는 file_name을 넘겨줌. (인자 없음)
 		tid =  thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
 	}
+
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	return tid;
@@ -181,11 +182,13 @@ error:
 
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
+
 //	static void start_process() (void *file_name_)			ppt
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
+
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -197,9 +200,15 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
+	
+	// for ( token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
+	// token = strtok_r (NULL, " ", &save_ptr)){
+	// 	count++;
+	// }
+
 
 	/* And then load the binary */
-	success = load (file_name, &_if);
+	success = load (file_name, &_if);//file_name -> token
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
@@ -350,6 +359,13 @@ load (const char *file_name, struct intr_frame *if_) {
 	off_t file_ofs;
 	bool success = false;
 	int i;
+	
+	char *token, *save_ptr;
+	char **stack_list;
+	char *fn_copy;
+	int count = 0;
+
+	fn_copy = file_name;
 
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
@@ -433,11 +449,32 @@ load (const char *file_name, struct intr_frame *if_) {
 	if (!setup_stack (if_))
 		goto done;
 
+
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+
+	// char *token, *save_ptr;
+	// char **stack_list;
+	// char *fn_copy;
+	// int count = 0;
+
+	fn_copy = palloc_get_page (0);
+	if (fn_copy == NULL){
+		return TID_ERROR;
+	}
+	strlcpy (fn_copy, file_name, PGSIZE);
+
+	token = strtok_r (fn_copy, " ", &save_ptr);
+	for ( token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
+	token = strtok_r (NULL, " ", &save_ptr)){
+		
+	}
+	
+
+
 
 	success = true;
 

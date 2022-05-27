@@ -38,10 +38,14 @@ process_init (void) {
  * before process_create_initd() returns. Returns the initd's
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
+
+//	tid_t process_execute() (const char *file_name)			ppt
 tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
+	char *token, *save_ptr;
+
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
@@ -49,6 +53,18 @@ process_create_initd (const char *file_name) {
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
+
+	// for ( token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
+	// token = strtok_r (NULL, " ", &save_ptr)){
+	// 	printf(" '%s' \n",  token);
+	// }
+
+
+	token = strtok_r (fn_copy, " ", &save_ptr);
+
+
+	puts("hello World\n");
+	printf("%s\n", fn_copy);
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
@@ -160,6 +176,7 @@ error:
 
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
+//	static void start_process() (void *file_name_)			ppt
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;

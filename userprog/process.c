@@ -38,44 +38,29 @@ process_init (void) {
  * before process_create_initd() returns. Returns the initd's
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
-
-//	tid_t process_execute() (const char *file_name)			ppt
 tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
-	char *token, *save_ptr;
-
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE); // 깊은 복사
+	strlcpy (fn_copy, file_name, PGSIZE);
 
-	// for ( token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
-	// token = strtok_r (NULL, " ", &save_ptr)){
-	// 	printf(" '%s' \n",  token);
-	// }
-
-	
-	token = strtok_r (fn_copy, " ", &save_ptr);
-	// 인자가 없는 경우, space가 없어서 token이 NULL
-
-	// puts("hello World\n");
-	printf("%s\n", fn_copy);
-
+	char *token, *save_ptr;
+	token = strtok_r (file_name, " ", &save_ptr);
+	printf("process create initd!!\n");
 	/* Create a new thread to execute FILE_NAME. */
-	if(token != NULL){
-		tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
-	}
-	else{	// token이 NULL인 경우에는 file_name을 넘겨줌. (인자 없음)
-		tid =  thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
-	}
-
-	if (tid == TID_ERROR)
+	printf("fn_copy: %s\n", fn_copy);
+	tid = thread_create (token, PRI_MAX, initd, fn_copy);
+	puts("debug sim");
+	printf("tid: %d\n", tid);
+	if (tid == TID_ERROR) {
 		palloc_free_page (fn_copy);
+	}
 	return tid;
 }
 
@@ -85,9 +70,8 @@ initd (void *f_name) {
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
-
 	process_init ();
-
+	puts("===ERROR!====");
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -182,14 +166,12 @@ error:
 
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
-
-//	static void start_process() (void *file_name_)			ppt
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
 
-
+	printf("process %s exec!!\n", file_name);
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -200,21 +182,13 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
-	
-	// for ( token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
-	// token = strtok_r (NULL, " ", &save_ptr)){
-	// 	count++;
-	// }
-
 
 	/* And then load the binary */
-	success = load (file_name, &_if);//file_name -> token
-
+	success = load (file_name, &_if);
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
-
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -359,22 +333,32 @@ load (const char *file_name, struct intr_frame *if_) {
 	off_t file_ofs;
 	bool success = false;
 	int i;
-	
+
 	char *token, *save_ptr;
-	char **stack_list;
-	char *fn_copy;
-	int count = 0;
+	char *file_name_split;
+	char *parse[64];
+	int cnt = 0;
 
-	fn_copy = file_name;
-
+	printf("start load!!\n");
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
 		goto done;
 	process_activate (thread_current ());
-
+	
 	/* Open executable file. */
+	
+	// * 추가
+	file_name_split = strstr(file_name, " ");
+
+	if(file_name_split) {
+		*file_name_split = '\0';
+	}
+
 	file = filesys_open (file_name);
+
+	*file_name_split = ' ';
+
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -449,41 +433,80 @@ load (const char *file_name, struct intr_frame *if_) {
 	if (!setup_stack (if_))
 		goto done;
 
-
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	printf("==== filename: %s %p %d\n", file_name, file_name, strlen(file_name));
 
-	// char *token, *save_ptr;
-	// char **stack_list;
-	// char *fn_copy;
-	// int count = 0;
-
-	fn_copy = palloc_get_page (0);
-	if (fn_copy == NULL){
-		return TID_ERROR;
+   	for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
+		printf ("'%s'\n", token);
+		parse[cnt++] = token;
 	}
-	strlcpy (fn_copy, file_name, PGSIZE);
 
-	token = strtok_r (fn_copy, " ", &save_ptr);
-	for ( token = strtok_r (fn_copy, " ", &save_ptr); token != NULL;
-	token = strtok_r (NULL, " ", &save_ptr)){
-		
-	}
+	argument_stack(parse, cnt, &if_->rsp);
+
+	if_->R.rdi = cnt;
+	if_->R.rsi = &if_->rsp;
 	
-
-
+	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
 
 	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
+
+	printf("end load!!\n");
 	file_close (file);
 	return success;
 }
 
+void argument_stack(char **parse, int count, void **esp) {
+	int i, j;
+	char *str_adrr[count];
+	uint8_t size = 0;
+
+	// * argv[i] 문자열
+	for (i = count - 1; -1 < i; i--) {
+		*esp -= (strlen(parse[i]) + 1);
+		strlcpy(*esp, parse[i], strlen(parse[i]) + 1);
+		size += strlen(parse[i]) + 1;
+		printf("parse[%d]: %s\n", i, parse[i]);
+		str_adrr[i] = *esp;
+	}
+
+	// * word allign
+	if (size % 8)
+		for (i = (8 - (size % 8)); 0 < i; i--) {
+			*esp = *esp - 1;
+			**(char **)esp = 0;
+		}
+
+	// printf("size pointer %d\n", sizeof(*esp)); // 32bit 시스템에서 포인터 크기 4byte, 64bit 시스템에서 포인터 크기 8byte, 여기서 출력해보면 8나옴
+	// * argv[count]
+	*esp = *esp - 8;
+	**(char **)esp = 0;
+
+	// * argv[i] 주소
+	for (i = count - 1; -1 < i; i--) {
+		*esp = *esp - 8;
+		printf("stlcpy address >> %p %s\n", str_adrr[i], str_adrr[i]);
+		memcpy(*esp, &str_adrr[i], strlen(&str_adrr[i]));
+	}
+	
+	// // * argv 주소
+	// *esp = *esp - 8;
+	// memcpy(*esp, str_adrr, strlen(str_adrr));
+
+	// // * argc
+	// *esp = *esp - 8;
+	// **(char **)esp = count;
+
+	// * return address(fake)
+	*esp = *esp - 8;
+	**(char **)esp = 0;
+}
 
 /* Checks whether PHDR describes a valid, loadable segment in
  * FILE and returns true if so, false otherwise. */

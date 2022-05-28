@@ -448,7 +448,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	argument_stack(parse, cnt, &if_->rsp);
 
 	if_->R.rdi = cnt;
-	if_->R.rsi = &if_->rsp;
+	if_->R.rsi = &if_->rsp+8;
 	
 	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
 

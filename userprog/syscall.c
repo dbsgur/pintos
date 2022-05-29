@@ -45,9 +45,11 @@ void syscall_init(void)
 
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
-{
+{	
 	// TODO: Your implementation goes here.
 	uintptr_t stack_pointer = f->rsp;
+	check_address(stack_pointer); /*추가*/
+	
 	uint64_t system_call_number = f->R.rax;
 	printf("system call!\n");
 	switch (system_call_number)
@@ -139,4 +141,10 @@ pid_t fork(const char *thread_name) {
 	/* 자식은 duplicated 리소스 가지고 있어야 한다. 
 		- 파일 디스크립터
 		- 가상 메모리공간 포함 
+	*/
+	
+}
+
+int filesize (int fd) {
+	return ftell(fd); /* 소설 : 이 함수 쓰는게 맞나 */
 }

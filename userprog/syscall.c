@@ -15,6 +15,17 @@ void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 void check_address(void *addr);
 void get_argument(void *esp, int *arg, int count);
+int exec (const char *cmd_line);
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+int open (const char *file);
+int filesize (int fd);
+void seek (int fd, unsigned position);
+int read (int fd, void *buffer, unsigned size);
+int write (int fd, const void *buffer, unsigned size);
+unsigned tell (int fd);
+void close (int fd);
+
 pid_t fork(const char *thread_name);
 
 /* System call.
@@ -114,13 +125,6 @@ void check_address(void *addr)
 	}
 }
 
-void get_argument(void *esp, int *arg, int count)
-{
-	/* 유저 스택에 저장된 인자값들을 커널로 저장 */
-
-	/* 인자가 저장된 위치가 유저영역인지 확인 */
-}
-
 void halt(void)
 {
 	power_off();
@@ -145,6 +149,74 @@ pid_t fork(const char *thread_name) {
 	
 }
 
+int exec (const char *cmd_line) {
+	
+}
+
+/* unsigned는 unsigned int의 축약형, unisigned는 4바이트, off_t는 음수2바이트, 양수 2바이트)*/
+bool create (const char *file, unsigned initial_size) {
+	return filesys_create(file, initial_size);
+}
+
+bool remove (const char *file) {
+	return filesys_remove(file);
+}
+
+/* fd 반환 */ 
+/* 소설 */ 
+/* file open 하면 파일에 대한 포인터가 반환되고 FAQ에 이를 굳이 file descriptor로 캐스팅 할 필요 없다 했으므로... */
+int open (const char *file) {
+	int fd = filesys_open(file);
+	if( fd == NULL) {
+		return -1;
+	}
+	return fd;
+}
+
 int filesize (int fd) {
-	return ftell(fd); /* 소설 : 이 함수 쓰는게 맞나 */
+	return file_length(fd); /* 소설 : 이 함수 쓰는게 맞나 */
+}
+
+int read (int fd, void *buffer, unsigned size) {
+	if(fd==0) {
+		int size = 0;
+		uint8_t key;
+		while (key != '\0') {
+			key = input_getc();
+			size++;
+		}
+		return size;
+	}
+
+	int read_bytes = file_read(fd, buffer, size);
+	if (read_bytes < size) {
+		return -1;
+	}
+	return read_bytes;
+}
+
+int write (int fd, const void *buffer, unsigned size) {
+	if(fd == 0) {
+		return -1;
+	}
+
+	if(fd == 1) {
+		putbuf(buffer, size);
+		return sizeof(buffer);
+	}
+
+	return file_write(fd, buffer, size); 
+}
+
+
+void seek (int fd, unsigned position) {
+	file_seek(fd, position);
+}
+
+unsigned tell (int fd) {
+	return file_tell(fd);
+}
+
+void close (int fd) {
+	file_close(fd);
 }

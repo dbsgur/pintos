@@ -224,8 +224,8 @@ void process_exit(void)
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
-	 * TODO: We recommend you to implement process resource cleanup here. */
-	printf("%s: exit(%d)\n", curr->name, curr->tid);
+	 * TODO: We recommend you to implement process resource cleanup here. */	
+	printf("%s", curr->name);
 	process_cleanup();
 }
 

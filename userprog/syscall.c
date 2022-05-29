@@ -126,7 +126,17 @@ void halt(void)
 
 void exit(int status)
 {
-	process_exit();
+	thread_exit();
+	printf(": exit(%d)\n", status);
 }
 
-pid_t fork(const char *thread_name) {}
+pid_t fork(const char *thread_name) {
+	//rbx, rsp, rbp, r12-r15까지 복사
+	/*return pid of child process 
+		in child : return value == 0 
+		parent : return value > 0
+	*/
+	/* 자식은 duplicated 리소스 가지고 있어야 한다. 
+		- 파일 디스크립터
+		- 가상 메모리공간 포함 
+}

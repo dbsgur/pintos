@@ -15,16 +15,17 @@ void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 void check_address(void *addr);
 void get_argument(void *esp, int *arg, int count);
-int exec (const char *cmd_line);
-bool create (const char *file, unsigned initial_size);
-bool remove (const char *file);
-int open (const char *file);
-int filesize (int fd);
-void seek (int fd, unsigned position);
-int read (int fd, void *buffer, unsigned size);
-int write (int fd, const void *buffer, unsigned size);
-unsigned tell (int fd);
-void close (int fd);
+int exec(const char *cmd_line);
+bool create(const char *file, unsigned initial_size);
+bool remove(const char *file);
+int open(const char *file);
+int filesize(int fd);
+void seek(int fd, unsigned position);
+int read(int fd, void *buffer, unsigned size);
+int write(int fd, const void *buffer, unsigned size);
+unsigned tell(int fd);
+void close(int fd);
+int wait(pid_t pid);
 
 pid_t fork(const char *thread_name);
 
@@ -56,17 +57,24 @@ void syscall_init(void)
 
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
-{	
+{
 	// TODO: Your implementation goes here.
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer); /*추가*/
-	
+
 	uint64_t system_call_number = f->R.rax;
+	uint64_t fd = f->R.rdi;
+	printf("================================================\n");
+	printf("fd : %lld\n", fd);
+	printf("stack_pointer : %lld\n", stack_pointer);
+	printf("system call number : %lld\n", system_call_number);
+	printf("f->R.rsi : %d", f->R.rsi);
 	printf("system call!\n");
+	printf("================================================\n");
 	switch (system_call_number)
 	{
 	case SYS_HALT:
-		/* code */
+		halt();
 		break;
 	case SYS_EXIT:
 		/* code */
@@ -75,6 +83,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		/* code */
 		break;
 	case SYS_EXEC:
+		exec(fd);
 		/* code */
 		break;
 	case SYS_WAIT:
@@ -96,8 +105,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		/* code */
 		break;
 	case SYS_WRITE:
+		// f->;
+		// write(f->);
 		/* code */
-		printf("SYS_WRITE\n");
 		break;
 	case SYS_SEEK:
 		/* code */
@@ -136,52 +146,75 @@ void exit(int status)
 	printf(": exit(%d)\n", status);
 }
 
-pid_t fork(const char *thread_name) {
-	//rbx, rsp, rbp, r12-r15까지 복사
-	/*return pid of child process 
-		in child : return value == 0 
+pid_t fork(const char *thread_name)
+{
+	// rbx, rsp, rbp, r12-r15까지 복사
+	/*return pid of child process
+		in child : return value == 0
 		parent : return value > 0
 	*/
-	/* 자식은 duplicated 리소스 가지고 있어야 한다. 
+	/* 자식은 duplicated 리소스 가지고 있어야 한다.
 		- 파일 디스크립터
-		- 가상 메모리공간 포함 
+		- 가상 메모리공간 포함
 	*/
-	
 }
 
-int exec (const char *cmd_line) {
-	
+int exec(const char *cmd_line)
+{
+	char *token, *save_ptr;
+
+	token = strtok_r(cmd_line, " ", &save_ptr);
+	if (token != NULL)
+	{
+		int status = process_exec(token);
+		if (status == -1)
+		{
+			exit(-1);
+		}
+	}
+	else
+	{
+		exit(-1);
+	}
 }
 
 /* unsigned는 unsigned int의 축약형, unisigned는 4바이트, off_t는 음수2바이트, 양수 2바이트)*/
-bool create (const char *file, unsigned initial_size) {
+bool create(const char *file, unsigned initial_size)
+{
 	return filesys_create(file, initial_size);
 }
 
-bool remove (const char *file) {
+bool remove(const char *file)
+{
 	return filesys_remove(file);
 }
 
-/* fd 반환 */ 
-/* 소설 */ 
+/* fd 반환 */
+/* 소설 */
 /* file open 하면 파일에 대한 포인터가 반환되고 FAQ에 이를 굳이 file descriptor로 캐스팅 할 필요 없다 했으므로... */
-int open (const char *file) {
+int open(const char *file)
+{
 	int fd = filesys_open(file);
-	if( fd == NULL) {
+	if (fd == NULL)
+	{
 		return -1;
 	}
 	return fd;
 }
 
-int filesize (int fd) {
+int filesize(int fd)
+{
 	return file_length(fd); /* 소설 : 이 함수 쓰는게 맞나 */
 }
 
-int read (int fd, void *buffer, unsigned size) {
-	if(fd==0) {
+int read(int fd, void *buffer, unsigned size)
+{
+	if (fd == 0)
+	{
 		int size = 0;
 		uint8_t key;
-		while (key != '\0') {
+		while (key != '\0')
+		{
 			key = input_getc();
 			size++;
 		}
@@ -189,34 +222,45 @@ int read (int fd, void *buffer, unsigned size) {
 	}
 
 	int read_bytes = file_read(fd, buffer, size);
-	if (read_bytes < size) {
+	if (read_bytes < size)
+	{
 		return -1;
 	}
 	return read_bytes;
 }
 
-int write (int fd, const void *buffer, unsigned size) {
-	if(fd == 0) {
+int write(int fd, const void *buffer, unsigned size)
+{
+	if (fd == 0)
+	{
 		return -1;
 	}
 
-	if(fd == 1) {
+	if (fd == 1)
+	{
 		putbuf(buffer, size);
 		return sizeof(buffer);
 	}
 
-	return file_write(fd, buffer, size); 
+	return file_write(fd, buffer, size);
 }
 
-
-void seek (int fd, unsigned position) {
+void seek(int fd, unsigned position)
+{
 	file_seek(fd, position);
 }
 
-unsigned tell (int fd) {
+unsigned tell(int fd)
+{
 	return file_tell(fd);
 }
 
-void close (int fd) {
+void close(int fd)
+{
 	file_close(fd);
+}
+
+int wait(pid_t pid)
+{
+	process_wait(pid);
 }

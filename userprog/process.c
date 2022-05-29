@@ -53,12 +53,12 @@ tid_t process_create_initd(const char *file_name)
 
 	char *token, *save_ptr;
 	token = strtok_r(file_name, " ", &save_ptr);
-	printf("process create initd!!\n");
+	// printf("process create initd!!\n");
 	/* Create a new thread to execute FILE_NAME. */
-	printf("fn_copy: %s\n", fn_copy);
+	// printf("fn_copy: %s\n", fn_copy);
 	tid = thread_create(token, PRI_MAX, initd, fn_copy);
 	puts("debug sim");
-	printf("tid: %d\n", tid);
+	// printf("tid: %d\n", tid);
 	if (tid == TID_ERROR)
 	{
 		palloc_free_page(fn_copy);
@@ -74,7 +74,7 @@ initd(void *f_name)
 	supplemental_page_table_init(&thread_current()->spt);
 #endif
 	process_init();
-	puts("===ERROR!====");
+	// puts("===ERROR!====");
 	if (process_exec(f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED();
@@ -177,7 +177,7 @@ int process_exec(void *f_name)
 	char *file_name = f_name;
 	bool success;
 
-	printf("process %s exec!!\n", file_name);
+	// printf("process %s exec!!\n", file_name);
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -224,8 +224,8 @@ void process_exit(void)
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
-	 * TODO: We recommend you to implement process resource cleanup here. */	
-	printf("%s", curr->name);
+	 * TODO: We recommend you to implement process resource cleanup here. */
+	// printf("%s", curr->name);
 	process_cleanup();
 }
 
@@ -349,7 +349,7 @@ load(const char *file_name, struct intr_frame *if_)
 	char *parse[64];
 	int cnt = 0;
 
-	printf("start load!!\n");
+	// printf("start load!!\n");
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create();
 	if (t->pml4 == NULL)
@@ -451,11 +451,11 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-	printf("==== filename: %s %p %d\n", file_name, file_name, strlen(file_name));
+	// printf("==== filename: %s %p %d\n", file_name, file_name, strlen(file_name));
 
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
 	{
-		printf("'%s'\n", token);
+		// printf("'%s'\n", token);
 		parse[cnt++] = token;
 	}
 
@@ -464,14 +464,14 @@ load(const char *file_name, struct intr_frame *if_)
 	if_->R.rdi = cnt;
 	if_->R.rsi = &if_->rsp + 8;
 
-	hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
+	// hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
 
 	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
 
-	printf("end load!!\n");
+	// printf("end load!!\n");
 	file_close(file);
 	return success;
 }
@@ -488,7 +488,7 @@ void argument_stack(char **parse, int count, void **esp)
 		*esp -= (strlen(parse[i]) + 1);
 		strlcpy(*esp, parse[i], strlen(parse[i]) + 1);
 		size += strlen(parse[i]) + 1;
-		printf("parse[%d]: %s\n", i, parse[i]);
+		// printf("parse[%d]: %s\n", i, parse[i]);
 		str_adrr[i] = *esp;
 	}
 
@@ -509,7 +509,7 @@ void argument_stack(char **parse, int count, void **esp)
 	for (i = count - 1; - 1 < i; i--)
 	{
 		*esp = *esp - 8;
-		printf("stlcpy address >> %p %s\n", str_adrr[i], str_adrr[i]);
+		// printf("stlcpy address >> %p %s\n", str_adrr[i], str_adrr[i]);
 		memcpy(*esp, &str_adrr[i], strlen(&str_adrr[i]));
 	}
 

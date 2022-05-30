@@ -43,6 +43,7 @@ tid_t process_create_initd(const char *file_name)
 { //실행파일의 이름을 가져온다. (커멘드라인???)
 	char *fn_copy;
 	tid_t tid;
+	puts("plz answer me");
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
@@ -225,7 +226,7 @@ int process_exec(void *f_name)
 	//유저 프로그램이 실행되기 전에 스택에 인자 저장
 	argument_stack(token_count, arg_list, &_if);
 	void **rspp = &_if.rsp;
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)*rspp, true);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)*rspp, true);
 
 	/* Start switched process.
 		 생성된 프로*/

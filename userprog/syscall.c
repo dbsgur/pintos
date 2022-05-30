@@ -106,7 +106,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		/* code */
 		break;
 	case SYS_WRITE:
+<<<<<<< HEAD
 		// f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+=======
+		// f->;
+		// write(f->);
+>>>>>>> 30d0d8e016b44842c980b5206ad7ac32b3e67f91
 		/* code */
 		break;
 	case SYS_SEEK:

@@ -69,8 +69,8 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer); /*추가*/
 	uint64_t system_call_number = f->R.rax;
-	printf("system call!\n");
-	printf("system call number : %lld\n", system_call_number);
+	// printf("system call!\n");
+	// printf("system call number : %lld\n", system_call_number);
 	switch (system_call_number)
 	{
 	case SYS_HALT:
@@ -106,12 +106,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		/* code */
 		break;
 	case SYS_WRITE:
-<<<<<<< HEAD
-		// f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
-=======
-		// f->;
-		// write(f->);
->>>>>>> 30d0d8e016b44842c980b5206ad7ac32b3e67f91
+		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		/* code */
 		break;
 	case SYS_SEEK:
@@ -146,8 +141,9 @@ void halt(void)
 
 void exit(int status)
 {
+	struct thread *curr = thread_current();
+	printf("%s: exit(%d)\n", curr->name, status);
 	thread_exit();
-	printf(": exit(%d)\n", status);
 }
 
 pid_t fork(const char *thread_name)
@@ -245,7 +241,7 @@ int write(int fd, const void *buffer, unsigned size)
 		putbuf(buffer, size);
 		return sizeof(buffer);
 	}
-
+	// fd 받는법
 	return file_write(fd, buffer, size);
 }
 

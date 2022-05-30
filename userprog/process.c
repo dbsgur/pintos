@@ -43,23 +43,29 @@ tid_t process_create_initd(const char *file_name)
 { //실행파일의 이름을 가져온다. (커멘드라인???)
 	char *fn_copy;
 	tid_t tid;
-	puts("plz answer me");
+	// puts("plz answer me");
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page(0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy(fn_copy, file_name, PGSIZE);
-	// printf("!!!!!!!! %s !!!!!\n",fn_copy);
-	// // /* 추가 - 첫번째 공백 전까지의 문자열 파싱 */
-	// char *token, *save_ptr; //토큰, 분리되고 남은 문자열
-	// token = strtok_r(fn_copy," ",&save_ptr); // 첫번째 인자
+	memcpy(fn_copy, file_name, PGSIZE);
+
+	// char *fn_copy2;
+	// fn_copy2 = palloc_get_page(0);
+	// if (fn_copy2 == NULL)
+	// 	return TID_ERROR;
+	// memcpy(fn_copy2, fn_copy, PGSIZE);
+
+	// char *save_ptr;
+	// char *title;
+	// title = strtok_r(fn_copy2," ",&save_ptr); // 첫번째 인자
 
 	// printf("!!!!!!!! %s !!!!!\n",token);
 
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy); //특정 기능을 가진 스레드 생성
+	tid = thread_create(fn_copy, PRI_DEFAULT, initd, fn_copy); //특정 기능을 가진 스레드 생성
 
 	// 실행하려는 파일의 이름을 스레드의 이름으로 전달한다음 실행(initd)기능을 사용하여 스레드를 생성한다.
 	if (tid == TID_ERROR)
@@ -227,6 +233,7 @@ int process_exec(void *f_name)
 	void **rspp = &_if.rsp;
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)*rspp, true);
 
+	// palloc_free_page(file_name_copy);
 	/* Start switched process.
 		 생성된 프로*/
 	do_iret(&_if); // 유저 프로그램 실행
@@ -738,7 +745,7 @@ void argument_stack(int argc, char **argv, struct intr_frame *if_)
 	}
 
 	/* Insert padding for word-align */
-	while (if_->rsp % 16)
+	while (if_->rsp % 8 != 0)
 	{
 		if_->rsp--;
 		*(uint8_t *)(if_->rsp) = 0;
@@ -753,11 +760,11 @@ void argument_stack(int argc, char **argv, struct intr_frame *if_)
 		if_->rsp = if_->rsp - 8;
 		memcpy(if_->rsp, &arg_address[i], sizeof(char **));
 	}
-
+	strlcpy(thread_current()->name, *(&arg_address[0]), sizeof(char[16]));
 	/* fake addr 0 넣어주기 */
-	if_->rsp = if_->rsp - 16;
+	if_->rsp = if_->rsp - 8;
 	*(int8_t *)if_->rsp = 0;
 
-	if_->R.rdi = argc;					/* 문자열의 개수 저장 */
-	if_->R.rsi = if_->rsp + 16; /*  문자열을 가리키는 주소들의 배열을 가리킴 */
+	if_->R.rdi = argc;				 /* 문자열의 개수 저장 */
+	if_->R.rsi = if_->rsp + 8; /*  문자열을 가리키는 주소들의 배열을 가리킴 */
 }

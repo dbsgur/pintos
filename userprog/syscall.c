@@ -76,6 +76,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer);
 	uint64_t system_call_number = f->R.rax;
+	int res;
 	switch (system_call_number)
 	{
 	case SYS_HALT:
@@ -110,7 +111,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
-		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		res = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		if(res ==-1) {
+			exit(-1);
+		} else {
+			f->R.rax = res;
+		}
 		break;
 	case SYS_SEEK:
 		seek(f->R.rdi, f->R.rsi);
@@ -194,14 +200,12 @@ bool remove(const char *file)
 	return filesys_remove(file);
 }
 
-/* fd 반환 */
-/* 소설 */
 /* file open 하면 파일에 대한 포인터가 반환되고 FAQ에 이를 굳이 file descriptor로 캐스팅 할 필요 없다 했으므로... */
 int open(const char *file)
 {	
 	check_address(file);
 	struct file *f = filesys_open(file);
-	if(&f == NULL) {
+	if(f == NULL) {
 		return -1;
 	}
 	return process_add_file(f);
@@ -239,9 +243,6 @@ int read(int fd, void *buffer, unsigned size)
 	lock_acquire(&filesys_lock);
 	int read_bytes = file_read(f, buffer, size);
 	lock_release(&filesys_lock);
-	printf("\nfd : %d\n", fd);
-	printf("read_bytes : %d\n", read_bytes);
-	printf("size : %d\n", size);
 
 	if (read_bytes < size)
 	{

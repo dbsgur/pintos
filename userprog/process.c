@@ -185,12 +185,11 @@ error:
  */
 int process_exec(void *f_name)
 { //프로세스 실행 - 실행하려는 바이너리 파일 이름을 가져옴
-	char *file_name = f_name;
 	char *file_name_copy; //파싱해서 담아주기 - 파일을 담을수있
 	// char *file_name_copy[48]; //48 왜???
 	bool success;
 
-	memcpy(file_name_copy, file_name, strlen(file_name) + 1);
+	memcpy(file_name_copy, f_name, strlen(file_name) + 1);
 	// printf("#######filename: %s\n",file_name_copy);
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -224,7 +223,7 @@ int process_exec(void *f_name)
 	success = load(arg_list[0], &_if); //해당 바이너리 파일을 메모리에 로드하기
 
 	/* If load failed, quit. */
-	palloc_free_page(file_name);
+	palloc_free_page(f_name);
 	if (!success)
 		return -1; //프로그램 종료? 할당된 모든 메모리 청크를 정리?
 

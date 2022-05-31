@@ -3,6 +3,8 @@
     "intrinsic.h": "c",
     "syscall.h": "c",
     "inode.h": "c",
-    "malloc.h": "c"
+    "malloc.h": "c",
+    "debug.h": "c",
+    "vaddr.h": "c"
   }
 }

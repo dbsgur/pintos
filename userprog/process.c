@@ -27,6 +27,10 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
+int process_add_file (struct file *f);
+struct file *process_get_file(int fd);
+void process_close_file (int fd);
+
 /* General process initializer for initd and other process. */
 static void
 process_init(void)
@@ -40,11 +44,9 @@ process_init(void)
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
 tid_t process_create_initd(const char *file_name)
-{ //실행파일의 이름을 가져온다. (커멘드라인???)
+{ 
 	char *fn_copy;
 	tid_t tid;
-	// puts("plz answer me");
-
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page(0);
@@ -52,22 +54,9 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	memcpy(fn_copy, file_name, PGSIZE);
 
-	// char *fn_copy2;
-	// fn_copy2 = palloc_get_page(0);
-	// if (fn_copy2 == NULL)
-	// 	return TID_ERROR;
-	// memcpy(fn_copy2, fn_copy, PGSIZE);
-
-	// char *save_ptr;
-	// char *title;
-	// title = strtok_r(fn_copy2," ",&save_ptr); // 첫번째 인자
-
-	// printf("!!!!!!!! %s !!!!!\n",token);
-
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(fn_copy, PRI_DEFAULT, initd, fn_copy); //특정 기능을 가진 스레드 생성
 
-	// 실행하려는 파일의 이름을 스레드의 이름으로 전달한다음 실행(initd)기능을 사용하여 스레드를 생성한다.
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -184,12 +173,11 @@ error:
  인터럽트 종료를 통해 유저프로그램으로 점프
  */
 int process_exec(void *f_name)
-{ //프로세스 실행 - 실행하려는 바이너리 파일 이름을 가져옴
-	char *file_name_copy; //파싱해서 담아주기 - 파일을 담을수있
-	// char *file_name_copy[48]; //48 왜???
+{ 
+	char *file_name_copy; 
 	bool success;
 
-	memcpy(file_name_copy, f_name, strlen(file_name) + 1);
+	memcpy(file_name_copy, f_name, strlen(f_name) + 1);
 	// printf("#######filename: %s\n",file_name_copy);
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -213,7 +201,6 @@ int process_exec(void *f_name)
 
 	while (token != NULL)
 	{
-		// printf("%d == %s\n",token_count,token);
 		token = strtok_r(NULL, " ", &last);
 		token_count++;
 		arg_list[token_count] = token;
@@ -258,16 +245,19 @@ int process_wait(tid_t child_tid UNUSED)
 	{
 		i++;
 	}
-	// while (1)
-	// {
-	// }
 	return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void process_exit(void)
 {
-	struct thread *curr = thread_current();
+	// struct thread *curr = thread_current();
+	// uint32_t *pd;
+
+	// while(--(curr->next_fd) >= 2) {
+	// 	process_close_file(curr->next_fd);
+	// }
+	// palloc_free_page(curr->fdt); /* free 는 나중에 */
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
@@ -395,14 +385,6 @@ load(const char *file_name, struct intr_frame *if_)
 	if (t->pml4 == NULL)
 		goto done;
 	process_activate(thread_current()); //레지서터 값을 실행중인 스레드의 페이지 테이블 주소로 변경
-
-	// /* Open executable file. */
-	// printf("토큰토크ㅡㅋ %s\n",file_name);
-	// char *fn_copy;
-	// strlcpy (fn_copy, file_name, PGSIZE);
-	// // ////////////!!!!!!!!!!!!!!!
-	// char *token, *save_ptr; //토큰, 분리되고 남은 문자열
-	// token = strtok_r(fn_copy," ",&save_ptr); // 첫번째 인자
 
 	file = filesys_open(file_name); //프로그램 파일 오픈
 
@@ -632,6 +614,30 @@ setup_stack(struct intr_frame *if_)
 	}
 	return success;
 }
+
+// int process_add_file (struct file *f) {
+// 	struct thread *t = thread_current();
+// 	t->fdt[t->next_fd] = f;
+// 	return t->next_fd++;
+// }
+
+// struct file *process_get_file(int fd) {
+// 	struct thread *t = thread_current();
+// 	if((fd >= t->next_fd)) {
+// 		return NULL;
+// 	}
+// 	return t->fdt[fd];
+// }
+
+// void process_close_file (int fd) {
+// 	struct thread *t = thread_current();
+// 	struct file *f = process_get_file(fd);
+// 	if(f != NULL) {
+// 		t->fdt[fd] = NULL;
+// 	}
+// 	file_close(f);
+	
+// }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
  * virtual address KPAGE to the page table.

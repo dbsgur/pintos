@@ -93,7 +93,7 @@ struct thread
 	enum thread_status status; /* Thread state. */
 	char name[16];						 /* Name (for debugging purposes). */
 	int priority;							 /* Priority. */
-	int64_t tick;							 /* 🔥 깨어냐야 할 tick을 저장할 변수 */
+	int64_t tick;							 /* 깨어냐야 할 tick을 저장할 변수 */
 
 	int init_priority;
 	struct lock *wait_on_lock;
@@ -102,6 +102,11 @@ struct thread
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
+
+	/* fdt는 file descriptor 테이블을 가리킨다 */
+	/* 현재 테이블에 존재하는 fd값의 최대값 + 1로 다음에 할당될 fd의 값 */ 
+	struct file **fdt;
+	int next_fd;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

@@ -111,10 +111,10 @@ thread_init (void) {
 	};
 	lgdt (&gdt_ds);
 
-	/* Init the globla thread context */
+	/* Init the global thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
-	list_init (&sleep_list); //
+	list_init (&sleep_list); 
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -122,6 +122,7 @@ thread_init (void) {
 	init_thread (initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -210,6 +211,9 @@ thread_create (const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
+
+	t->next_fd = 2;
+	t->fdt = palloc_get_page(PAL_ZERO);
 
 	/* Add to ready queue. */
 	thread_unblock (t);
@@ -455,6 +459,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_init(&t->donations);
 	t->wait_on_lock = NULL;
 	t->init_priority = priority;
+
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -687,16 +692,6 @@ void thread_awake(int64_t ticks){
 		}
 	}
 }
-
-// void donate_priority(void)
-// {
-// /* priority donation 을 수행하는 함수를 구현한다.
-// 현재 스레드가 기다리고 있는 lock 과 연결 된 모든 스레드들을 순회하며
-// 현재 스레드의 우선순위를 lock 을 보유하고 있는 스레드에게 기부 한다.
-// (Nested donation 그림 참고, nested depth 는 8로 제한한다. ) */
-
-
-// }
 
 void donate_priority(void)
 {

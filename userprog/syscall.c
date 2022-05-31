@@ -51,6 +51,7 @@ void syscall_init(void)
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 						FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+	// lock_init (&filesys_lock);
 }
 
 /* The main system call interface */
@@ -74,7 +75,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	switch (system_call_number)
 	{
 	case SYS_HALT:
-		// halt();
+		halt();
 		break;
 	case SYS_EXIT:
 		exit(f->R.rdi);
@@ -103,11 +104,11 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		/* code */
 		break;
 	case SYS_READ:
-		/* code */
+		/* gitbook : System calls that return a value can do so by modifying the rax member of struct intr_frame.*/
+		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		/* code */
 		break;
 	case SYS_SEEK:
 		/* code */
@@ -208,7 +209,8 @@ int filesize(int fd)
 }
 
 int read(int fd, void *buffer, unsigned size)
-{
+{	
+
 	if (fd == 0)
 	{
 		int size = 0;
@@ -221,6 +223,7 @@ int read(int fd, void *buffer, unsigned size)
 		return size;
 	}
 
+	// lock_acuqire(filesys_lock);
 	int read_bytes = file_read(fd, buffer, size);
 	if (read_bytes < size)
 	{

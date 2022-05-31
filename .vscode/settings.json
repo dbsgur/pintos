@@ -5,6 +5,7 @@
     "inode.h": "c",
     "malloc.h": "c",
     "debug.h": "c",
-    "vaddr.h": "c"
+    "vaddr.h": "c",
+    "*.inc": "c"
   }
 }

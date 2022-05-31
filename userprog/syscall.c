@@ -10,6 +10,9 @@
 #include "include/lib/user/syscall.h"
 #include "include/threads/init.h"
 #include "userprog/process.h"
+#include "include/threads/synch.h"
+#include "include/filesys/file.h"
+#include "include/filesys/filesys.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -40,6 +43,8 @@ int wait(pid_t pid);
 #define MSR_LSTAR 0xc0000082				/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
+static struct lock filesys_lock;
+
 void syscall_init(void)
 {
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
@@ -51,7 +56,8 @@ void syscall_init(void)
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 						FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
-	// lock_init (&filesys_lock);
+
+	lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
@@ -68,10 +74,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	*/
 	// TODO: Your implementation goes here.
 	uintptr_t stack_pointer = f->rsp;
-	check_address(stack_pointer); /*추가*/
+	check_address(stack_pointer);
 	uint64_t system_call_number = f->R.rax;
-	// printf("system call!\n");
-	// printf("system call number : %lld\n", system_call_number);
+	int res;
 	switch (system_call_number)
 	{
 	case SYS_HALT:
@@ -79,49 +84,52 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 	case SYS_EXIT:
 		exit(f->R.rdi);
-		/* code */
 		break;
 	case SYS_FORK:
 		/* code */
 		break;
 	case SYS_EXEC:
-		// exec(fd);
-		/* code */
+		f->R.rax=exec(f->R.rdi);
 		break;
 	case SYS_WAIT:
-		/* code */
+		f->R.rax=wait(f->R.rdi);
 		break;
 	case SYS_CREATE:
-		/* code */
+		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
 	case SYS_REMOVE:
-		/* code */
+		f->R.rax = remove(f->R.rdi);
 		break;
 	case SYS_OPEN:
-		/* code */
+		f->R.rax = open(f->R.rdi);
 		break;
 	case SYS_FILESIZE:
-		/* code */
+		f->R.rax = filesize(f->R.rdi);
 		break;
 	case SYS_READ:
 		/* gitbook : System calls that return a value can do so by modifying the rax member of struct intr_frame.*/
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
-		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		res = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		if(res ==-1) {
+			exit(-1);
+		} else {
+			f->R.rax = res;
+		}
 		break;
 	case SYS_SEEK:
-		/* code */
+		seek(f->R.rdi, f->R.rsi);
 		break;
 	case SYS_TELL:
-		/* code */
+		f->R.rax = tell(f->R.rdi);
 		break;
 	case SYS_CLOSE:
-		/* code */
+		close(f->R.rdi);
 		break;
 
 	default:
-		thread_exit();
+		exit(-1);
 		break;
 	}
 }
@@ -129,7 +137,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 void check_address(void *addr)
 {
 	/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
-	if (!is_user_vaddr(addr))
+	if (addr == NULL || !is_user_vaddr(addr))
 	{ /* 잘못된 접근일 경우 프로세스 종료 */
 		exit(-1);
 	}
@@ -175,42 +183,46 @@ int exec(const char *cmd_line)
 	}
 	else
 	{
-		exit(-1);
+		exit(0);
 	}
 }
 
 /* unsigned는 unsigned int의 축약형, unisigned는 4바이트, off_t는 음수2바이트, 양수 2바이트)*/
 bool create(const char *file, unsigned initial_size)
-{
+{	
+	check_address(file);
 	return filesys_create(file, initial_size);
 }
 
 bool remove(const char *file)
-{
+{	
+	check_address(file);
 	return filesys_remove(file);
 }
 
-/* fd 반환 */
-/* 소설 */
 /* file open 하면 파일에 대한 포인터가 반환되고 FAQ에 이를 굳이 file descriptor로 캐스팅 할 필요 없다 했으므로... */
 int open(const char *file)
-{
-	int fd = filesys_open(file);
-	if (fd == NULL)
-	{
+{	
+	check_address(file);
+	struct file *f = filesys_open(file);
+	if(f == NULL) {
 		return -1;
 	}
-	return fd;
+	return process_add_file(f);
 }
 
 int filesize(int fd)
-{
-	return file_length(fd); /* 소설 : 이 함수 쓰는게 맞나 */
+{	
+	struct file *f = process_get_file(fd);
+	if(f == NULL) {
+		return -1;
+	}
+	return file_length(f); 
 }
 
 int read(int fd, void *buffer, unsigned size)
 {	
-
+	check_address(buffer);
 	if (fd == 0)
 	{
 		int size = 0;
@@ -223,8 +235,15 @@ int read(int fd, void *buffer, unsigned size)
 		return size;
 	}
 
-	// lock_acuqire(filesys_lock);
-	int read_bytes = file_read(fd, buffer, size);
+
+	struct file *f = process_get_file(fd);
+	if(f == NULL) {
+		return -1;
+	}
+	lock_acquire(&filesys_lock);
+	int read_bytes = file_read(f, buffer, size);
+	lock_release(&filesys_lock);
+
 	if (read_bytes < size)
 	{
 		return -1;
@@ -233,7 +252,8 @@ int read(int fd, void *buffer, unsigned size)
 }
 
 int write(int fd, const void *buffer, unsigned size)
-{
+{	
+	check_address(buffer);
 	if (fd == 0)
 	{
 		return -1;
@@ -244,23 +264,35 @@ int write(int fd, const void *buffer, unsigned size)
 		putbuf(buffer, size);
 		return sizeof(buffer);
 	}
-	// fd 받는법
-	return file_write(fd, buffer, size);
+	
+	struct file *f = process_get_file(fd);
+	if(f == NULL) {
+		return -1;
+	}
+	lock_acquire(&filesys_lock);
+	int byte = file_write(process_get_file(fd), buffer, size);
+	lock_release(&filesys_lock);
+	return byte;
 }
 
 void seek(int fd, unsigned position)
-{
-	file_seek(fd, position);
+{	
+	struct file *f = process_get_file(fd);
+	file_seek(f, position);
 }
 
 unsigned tell(int fd)
-{
-	return file_tell(fd);
+{		
+	struct file *f = process_get_file(fd);
+	if(f == NULL) {
+		return -1;
+	}
+	return file_tell(f);
 }
 
 void close(int fd)
 {
-	file_close(fd);
+	process_close_file(fd);
 }
 
 int wait(pid_t pid)

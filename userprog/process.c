@@ -27,9 +27,9 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
-int process_add_file (struct file *f);
+int process_add_file(struct file *f);
 struct file *process_get_file(int fd);
-void process_close_file (int fd);
+void process_close_file(int fd);
 
 /* General process initializer for initd and other process. */
 static void
@@ -44,7 +44,7 @@ process_init(void)
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
 tid_t process_create_initd(const char *file_name)
-{ 
+{
 	char *fn_copy;
 	tid_t tid;
 	/* Make a copy of FILE_NAME.
@@ -173,8 +173,8 @@ error:
  인터럽트 종료를 통해 유저프로그램으로 점프
  */
 int process_exec(void *f_name)
-{ 
-	char *file_name_copy; 
+{
+	char *file_name_copy;
 	bool success;
 
 	memcpy(file_name_copy, f_name, strlen(f_name) + 1);
@@ -615,29 +615,33 @@ setup_stack(struct intr_frame *if_)
 	return success;
 }
 
-// int process_add_file (struct file *f) {
-// 	struct thread *t = thread_current();
-// 	t->fdt[t->next_fd] = f;
-// 	return t->next_fd++;
-// }
+int process_add_file(struct file *f)
+{
+	struct thread *t = thread_current();
+	t->fdt[t->next_fd] = f;
+	return t->next_fd++;
+}
 
-// struct file *process_get_file(int fd) {
-// 	struct thread *t = thread_current();
-// 	if((fd >= t->next_fd)) {
-// 		return NULL;
-// 	}
-// 	return t->fdt[fd];
-// }
+struct file *process_get_file(int fd)
+{
+	struct thread *t = thread_current();
+	if ((fd >= t->next_fd))
+	{
+		return NULL;
+	}
+	return t->fdt[fd];
+}
 
-// void process_close_file (int fd) {
-// 	struct thread *t = thread_current();
-// 	struct file *f = process_get_file(fd);
-// 	if(f != NULL) {
-// 		t->fdt[fd] = NULL;
-// 	}
-// 	file_close(f);
-	
-// }
+void process_close_file(int fd)
+{
+	struct thread *t = thread_current();
+	struct file *f = process_get_file(fd);
+	if (f != NULL)
+	{
+		t->fdt[fd] = NULL;
+	}
+	file_close(f);
+}
 
 /* Adds a mapping from user virtual address UPAGE to kernel
  * virtual address KPAGE to the page table.

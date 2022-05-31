@@ -251,13 +251,13 @@ int process_wait(tid_t child_tid UNUSED)
 /* Exit the process. This function is called by thread_exit (). */
 void process_exit(void)
 {
-	// struct thread *curr = thread_current();
+	struct thread *curr = thread_current();
 	// uint32_t *pd;
 
-	// while(--(curr->next_fd) >= 2) {
-	// 	process_close_file(curr->next_fd);
-	// }
-	// palloc_free_page(curr->fdt); /* free 는 나중에 */
+	while(--(curr->next_fd) >= 2) {
+		process_close_file(curr->next_fd);
+	}
+	palloc_free_page(curr->fdt); /* free 는 나중에 */
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).

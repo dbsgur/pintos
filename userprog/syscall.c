@@ -173,24 +173,34 @@ pid_t fork(const char *thread_name)
 	*/
 }
 
-int exec(const char *cmd_line)
-{
-	char *token, *save_ptr;
+pid_t exec(const char *cmd_line)
+{	
+	struct thread *t = thread_current();
+	tid_t tid = process_create_initd(cmd_line);
+	sema_down(&t->load_sema);
 
-	token = strtok_r(cmd_line, " ", &save_ptr);
-	if (token != NULL)
-	{
-		int status = process_exec(token);
-		if (status == -1)
-		{
-			thread_current()->exit_status = -1;
-			exit(-1);
+	struct thread *children;
+	struct list *children_list = &t->children;
+	if (!list_empty (&children_list)){
+		struct list_elem * curr = list_begin (&children_list);
+		struct thread * curr_thread;
+		while(list_end (&children_list) != curr){
+			curr_thread = list_entry(curr, struct thread, elem);
+			if(curr_thread->tid == tid){
+				children = curr_thread;
+				break;
+			}else{
+				curr = list_next(curr);
+			}
 		}
 	}
-	else
-	{
-		exit(0);
+
+	if(children->load_status == 0) {
+		return tid;
 	}
+
+	thread_current()->exit_status = -1;
+	return -1;
 }
 
 /* unsigned는 unsigned int의 축약형, unisigned는 4바이트, off_t는 음수2바이트, 양수 2바이트)*/

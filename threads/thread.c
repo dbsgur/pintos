@@ -215,16 +215,35 @@ thread_create (const char *name, int priority,
 	t->next_fd = 2;
 	t->fdt = palloc_get_page(PAL_ZERO);
 
+	struct thread *curr = thread_current();
+	/* 부모 프로세스 저장 */
+	t->parent_process = curr;
+	
+	/* 프로그램이 로드되지 않음 */
+	t->load_status = -1;
+	/* 프로세스가 종료되지 않음 */
+	t->exit_status = 0;
+	/* exit 세마포어 0으로 초기화 */
+	sema_init(&t->exit_sema, 0);
+	/* load 세마포어 0으로 초기화 */
+	sema_init(&t->load_sema, 0);
+	
+	/* 자식 리스트에 추가 */
+	list_push_back(&curr->children, &t->child_elem);
+
+
+
 	/* Add to ready queue. */
 	thread_unblock (t);
 
 	/*생성된 스레드의 우선순위가 현재 실행중인 스레드의 우선순위 보다 높다면 CPU를 양보한다 */
-	struct thread * curr = thread_current ();
 	if(priority > curr->priority) {
 		thread_yield();
 	}
 	return tid;
 }
+
+
 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
@@ -460,7 +479,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->wait_on_lock = NULL;
 	t->init_priority = priority;
 
-	t->exit_status = 0;
+	list_init(&t->children);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

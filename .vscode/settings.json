@@ -6,6 +6,7 @@
     "malloc.h": "c",
     "debug.h": "c",
     "vaddr.h": "c",
-    "*.inc": "c"
+    "*.inc": "c",
+    "synch.h": "c"
   }
 }

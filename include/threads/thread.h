@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -89,11 +90,11 @@ typedef int tid_t;
 struct thread
 {
 	/* Owned by thread.c. */
-	tid_t tid;								 /* Thread identifier. */
-	enum thread_status status; /* Thread state. */
-	char name[16];						 /* Name (for debugging purposes). */
-	int priority;							 /* Priority. */
-	int64_t tick;							 /* 깨어냐야 할 tick을 저장할 변수 */
+	tid_t tid;								/* Thread identifier. */
+	enum thread_status status; 				/* Thread state. */
+	char name[16];						 	/* Name (for debugging purposes). */
+	int priority;							/* Priority. */
+	int64_t tick;							/* 깨어냐야 할 tick을 저장할 변수 */
 
 	int init_priority;
 	struct lock *wait_on_lock;
@@ -108,8 +109,24 @@ struct thread
 	struct file **fdt;
 	int next_fd;
 
+	/* 부모 프로세스의 디스크립터 */
+	struct thread *parent_process;
+	/* 자식 리스트 element */
+	struct list_elem child_elem;
+	/* 자식 리스트 */
+	struct list children;
+	
+	/* 프로세스의 프로그램 메모리 적재 유무 */
+		/* 프로세스가 종료 유무 확인 */
+		/* exit 세마포어 */
+		/* load 세마포어 */
+	struct semaphore exit_sema; 
+	struct semaphore load_sema; 
+
+	/*load 성공 플래그*/
+	int load_status;
 	/* exit 호출시 종료 status */
-	int exit_status;
+	int exit_status; /*syscall 에서 사용하는 것 말고 별도로 플래그 줘야하나? */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

@@ -112,11 +112,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 	case SYS_WRITE:
 		res = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		if(res ==-1) {
-			exit(-1);
-		} else {
-			f->R.rax = res;
-		}
+		f->R.rax = res;
+		// if(res ==-1) {
+		// 	exit(-1);
+		// } else {
+		// 	f->R.rax = res;
+		// }
 		break;
 	case SYS_SEEK:
 		seek(f->R.rdi, f->R.rsi);
@@ -132,6 +133,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(-1);
 		break;
 	}
+	if(thread_current()->exit_status == -1) {
+		exit(-1);
+	}
 }
 
 void check_address(void *addr)
@@ -139,6 +143,7 @@ void check_address(void *addr)
 	/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
 	if (addr == NULL || !is_user_vaddr(addr))
 	{ /* 잘못된 접근일 경우 프로세스 종료 */
+		thread_current()->exit_status = -1;
 		exit(-1);
 	}
 }
@@ -178,6 +183,7 @@ int exec(const char *cmd_line)
 		int status = process_exec(token);
 		if (status == -1)
 		{
+			thread_current()->exit_status = -1;
 			exit(-1);
 		}
 	}
@@ -206,7 +212,7 @@ int open(const char *file)
 	check_address(file);
 	struct file *f = filesys_open(file);
 	if(f == NULL) {
-		return -1;
+		return -1; /* 수정 : 비정상 종료 처리를 open 만 해주지 않음 ?*/
 	}
 	return process_add_file(f);
 }
@@ -215,6 +221,7 @@ int filesize(int fd)
 {	
 	struct file *f = process_get_file(fd);
 	if(f == NULL) {
+		thread_current()->exit_status = -1;
 		return -1;
 	}
 	return file_length(f); 
@@ -238,6 +245,7 @@ int read(int fd, void *buffer, unsigned size)
 
 	struct file *f = process_get_file(fd);
 	if(f == NULL) {
+		thread_current()->exit_status = -1;
 		return -1;
 	}
 	lock_acquire(&filesys_lock);
@@ -245,7 +253,8 @@ int read(int fd, void *buffer, unsigned size)
 	lock_release(&filesys_lock);
 
 	if (read_bytes < size)
-	{
+	{	
+		thread_current()->exit_status = -1;
 		return -1;
 	}
 	return read_bytes;
@@ -255,7 +264,8 @@ int write(int fd, const void *buffer, unsigned size)
 {	
 	check_address(buffer);
 	if (fd == 0)
-	{
+	{	
+		thread_current()->exit_status = -1;
 		return -1;
 	}
 
@@ -267,6 +277,7 @@ int write(int fd, const void *buffer, unsigned size)
 	
 	struct file *f = process_get_file(fd);
 	if(f == NULL) {
+		thread_current()->exit_status = -1;
 		return -1;
 	}
 	lock_acquire(&filesys_lock);
@@ -285,6 +296,7 @@ unsigned tell(int fd)
 {		
 	struct file *f = process_get_file(fd);
 	if(f == NULL) {
+		thread_current()->exit_status = -1;
 		return -1;
 	}
 	return file_tell(f);

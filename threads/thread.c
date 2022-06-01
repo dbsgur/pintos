@@ -460,6 +460,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->wait_on_lock = NULL;
 	t->init_priority = priority;
 
+	t->exit_status = 0;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

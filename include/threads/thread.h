@@ -108,6 +108,9 @@ struct thread
 	struct file **fdt;
 	int next_fd;
 
+	/* exit 호출시 종료 status */
+	int exit_status;
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */

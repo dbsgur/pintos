@@ -52,17 +52,17 @@ tid_t process_create_initd(const char *file_name)
 
 	char *fn_copy2;
 	fn_copy2 = palloc_get_page(0);
-	if (fn_copy2 == NULL) 
+	if (fn_copy2 == NULL)
 		return TID_ERROR;
 	memcpy(fn_copy2, fn_copy, PGSIZE);
 
 	char *save_ptr;
 	char *title;
-	title = strtok_r(fn_copy2," ",&save_ptr); // 첫번째 인자
+	title = strtok_r(fn_copy2, " ", &save_ptr); // 첫번째 인자
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(title, PRI_DEFAULT, initd, fn_copy); //특정 기능을 가진 스레드 생성
-
+	palloc_free_page(fn_copy2);
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -179,7 +179,7 @@ error:
  인터럽트 종료를 통해 유저프로그램으로 점프
  */
 int process_exec(void *f_name)
-{	
+{
 	char *file_name_copy;
 	bool success;
 
@@ -200,7 +200,7 @@ int process_exec(void *f_name)
 
 	/* We first kill the current context */
 	process_cleanup();
-	
+
 	/* 파싱하기 */
 	int token_count = 0;
 	char *token, *last;
@@ -220,7 +220,7 @@ int process_exec(void *f_name)
 	/* And then load the binary */
 	success = load(arg_list[0], &_if); /* 해당 바이너리 파일을 메모리에 로드하기 */
 	argument_stack(token_count, arg_list, &_if);
-	
+
 	// struct thread *t = thread_current();
 	// sema_up(&(t->parent_process->load_sema));
 
@@ -228,19 +228,21 @@ int process_exec(void *f_name)
 	palloc_free_page(file_name_copy);
 	/* file name과 file_name copy도 해지 */
 	if (!success)
-		// t->exit_status = -1;
-		return -1; 
+	{
+		palloc_free_page(f_name);
+		return -1;
+	}
 	// t->load_status = 0;
 
 	//유저 프로그램이 실행되기 전에 스택에 인자 저장
 
-
 	// void **rspp = &_if.rsp;
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)*rspp, true);
 
-// palloc_free_page(file_name_copy);
+	// palloc_free_page(file_name_copy);
 	/* Start switched process.
 		 생성된 프로*/
+	palloc_free_page(f_name);
 	do_iret(&_if); // 유저 프로그램 실행
 	NOT_REACHED();
 }
@@ -260,7 +262,6 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:      to add infinite loop here before
 	 * XXX:      implementing the process_wait. */
-
 
 	int i = 0;
 	while (i != 100000000)
@@ -297,8 +298,6 @@ int process_wait(tid_t child_tid UNUSED)
 	// /* 자식 프로세스 디스크립터 삭제 */
 	// /* 자식 프로세스의 exit status 리턴 */
 
-
-
 	// if(children->load_status == 0) {
 	// 	return tid;
 	// }
@@ -314,7 +313,8 @@ void process_exit(void)
 	struct thread *curr = thread_current();
 	// uint32_t *pd;
 
-	while(--(curr->next_fd) >= 2) {
+	while (--(curr->next_fd) >= 2)
+	{
 		process_close_file(curr->next_fd);
 	}
 	palloc_free_page(curr->fdt); /* free 는 나중에 */
@@ -722,7 +722,7 @@ install_page(void *upage, void *kpage, bool writable)
 	return (pml4_get_page(t->pml4, upage) == NULL && pml4_set_page(t->pml4, upage, kpage, writable));
 }
 
-struct thread *get_child_process (int pid)
+struct thread *get_child_process(int pid)
 {
 	/* 자식 리스트에 접근하여 프로세스 디스크립터 검색 */
 	struct thread *t = thread_current();
@@ -730,41 +730,47 @@ struct thread *get_child_process (int pid)
 	struct list_elem *e;
 	int i;
 	/* 해당 pid가 존재하면 프로세스 디스크립터 반환 */
-	for (i = 0, e = list_begin (children_list);
-		i < list_size(children_list) && e != list_end (children_list);
-		i++, e = list_next (e)) 
+	for (i = 0, e = list_begin(children_list);
+			 i < list_size(children_list) && e != list_end(children_list);
+			 i++, e = list_next(e))
+	{
+		struct thread *child_t = list_entry(e, struct thread, child_elem);
+		if (child_t->tid == pid)
 		{
-		struct thread *child_t = list_entry (e, struct thread, child_elem);
-		if(child_t->tid == pid) {
 			return child_t;
 		}
-		}
+	}
 	/* 리스트에 존재하지 않으면 NULL 리턴 */
 	return NULL;
 }
 
-void remove_child_process(struct thread *cp) {
+void remove_child_process(struct thread *cp)
+{
 	struct thread *t = thread_current();
 	struct list *children_list = &t->children;
 	struct list_elem *e;
 	int i;
 
 	/* 자식 리스트에서 제거*/
-	if (!list_empty (&children_list)){
-		struct list_elem * curr = list_begin (&children_list);
-		struct thread * curr_thread;
-		while(list_end (&children_list) != curr){
+	if (!list_empty(&children_list))
+	{
+		struct list_elem *curr = list_begin(&children_list);
+		struct thread *curr_thread;
+		while (list_end(&children_list) != curr)
+		{
 			curr_thread = list_entry(curr, struct thread, elem);
-			if(curr_thread->tid == cp->tid){
+			if (curr_thread->tid == cp->tid)
+			{
 				curr = list_remove(curr);
 				/* 프로세스 디스크립터 메모리 해제 */
 				palloc_free_page(cp);
-			}else{
+			}
+			else
+			{
 				curr = list_next(curr);
 			}
 		}
 	}
-
 }
 #else
 /* From here, codes will be used after project 3.

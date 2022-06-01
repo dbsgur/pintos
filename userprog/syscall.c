@@ -11,8 +11,11 @@
 #include "include/threads/init.h"
 #include "userprog/process.h"
 #include "include/threads/synch.h"
+#include "include/threads/thread.h"
 #include "include/filesys/file.h"
 #include "include/filesys/filesys.h"
+#include "threads/palloc.h"
+#include "lib/string.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -89,10 +92,10 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		/* code */
 		break;
 	case SYS_EXEC:
-		f->R.rax=exec(f->R.rdi);
+		f->R.rax = exec(f->R.rdi);
 		break;
 	case SYS_WAIT:
-		f->R.rax=wait(f->R.rdi);
+		f->R.rax = wait(f->R.rdi);
 		break;
 	case SYS_CREATE:
 		f->R.rax = create(f->R.rdi, f->R.rsi);
@@ -133,19 +136,27 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(-1);
 		break;
 	}
-	if(thread_current()->exit_status == -1) {
+	if (thread_current()->exit_status == -1)
+	{
 		exit(-1);
 	}
 }
 
 void check_address(void *addr)
 {
-	/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
-	if (addr == NULL || !is_user_vaddr(addr))
-	{ /* 잘못된 접근일 경우 프로세스 종료 */
+	// pml4_get_page addr에 페이지 할당 여부 가능한지
+	//
+	if ((pml4_get_page(thread_current()->pml4, addr) == NULL) || (is_kernel_vaddr(addr)) || (addr == NULL))
+	{
 		thread_current()->exit_status = -1;
 		exit(-1);
 	}
+	/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
+	// if (addr == NULL || !is_user_vaddr(addr))
+	// { /* 잘못된 접근일 경우 프로세스 종료 */
+	// 	thread_current()->exit_status = -1;
+	// 	exit(-1);
+	// }
 }
 
 void halt(void)
@@ -174,71 +185,56 @@ pid_t fork(const char *thread_name)
 }
 
 pid_t exec(const char *cmd_line)
-{	
+{
 	check_address(cmd_line);
-	if(process_exec(cmd_line) == -1) {
+	char *cmd_line_copy;
+	cmd_line_copy = palloc_get_page(0);
+	if (cmd_line_copy == NULL)
+		return TID_ERROR;
+	memcpy(cmd_line_copy, cmd_line, strlen(cmd_line) + 1);
+	if (process_exec(cmd_line_copy) == -1)
+	{
 		return -1;
 	};
-	// tid_t tid = process_create_initd(cmd_line);
-	// sema_down(&t->load_sema);
-
-	// struct thread *children;
-	// struct list *children_list = &t->children;
-	// if (!list_empty (&children_list)){
-	// 	struct list_elem * curr = list_begin (&children_list);
-	// 	struct thread * curr_thread;
-	// 	while(list_end (&children_list) != curr){
-	// 		curr_thread = list_entry(curr, struct thread, elem);
-	// 		if(curr_thread->tid == tid){
-	// 			children = curr_thread;
-	// 			break;
-	// 		}else{
-	// 			curr = list_next(curr);
-	// 		}
-	// 	}
-	// }
-
-	// if(children->load_status == 0) {
-	// 	return tid;
-	// }
 }
 
 /* unsigned는 unsigned int의 축약형, unisigned는 4바이트, off_t는 음수2바이트, 양수 2바이트)*/
 bool create(const char *file, unsigned initial_size)
-{	
+{
 	check_address(file);
 	return filesys_create(file, initial_size);
 }
 
 bool remove(const char *file)
-{	
+{
 	check_address(file);
 	return filesys_remove(file);
 }
 
-/* file open 하면 파일에 대한 포인터가 반환되고 FAQ에 이를 굳이 file descriptor로 캐스팅 할 필요 없다 했으므로... */
 int open(const char *file)
-{	
+{
 	check_address(file);
 	struct file *f = filesys_open(file);
-	if(f == NULL) {
+	if (f == NULL)
+	{
 		return -1; /* 수정 : 비정상 종료 처리를 open 만 해주지 않음 ?*/
 	}
 	return process_add_file(f);
 }
 
 int filesize(int fd)
-{	
+{
 	struct file *f = process_get_file(fd);
-	if(f == NULL) {
+	if (f == NULL)
+	{
 		thread_current()->exit_status = -1;
 		return -1;
 	}
-	return file_length(f); 
+	return file_length(f);
 }
 
 int read(int fd, void *buffer, unsigned size)
-{	
+{
 	check_address(buffer);
 	if (fd == 0)
 	{
@@ -252,9 +248,9 @@ int read(int fd, void *buffer, unsigned size)
 		return size;
 	}
 
-
 	struct file *f = process_get_file(fd);
-	if(f == NULL) {
+	if (f == NULL)
+	{
 		thread_current()->exit_status = -1;
 		return -1;
 	}
@@ -263,7 +259,7 @@ int read(int fd, void *buffer, unsigned size)
 	lock_release(&filesys_lock);
 
 	if (read_bytes < size)
-	{	
+	{
 		thread_current()->exit_status = -1;
 		return -1;
 	}
@@ -271,10 +267,10 @@ int read(int fd, void *buffer, unsigned size)
 }
 
 int write(int fd, const void *buffer, unsigned size)
-{	
+{
 	check_address(buffer);
 	if (fd == 0)
-	{	
+	{
 		thread_current()->exit_status = -1;
 		return -1;
 	}
@@ -284,9 +280,10 @@ int write(int fd, const void *buffer, unsigned size)
 		putbuf(buffer, size);
 		return sizeof(buffer);
 	}
-	
+
 	struct file *f = process_get_file(fd);
-	if(f == NULL) {
+	if (f == NULL)
+	{
 		thread_current()->exit_status = -1;
 		return -1;
 	}
@@ -297,15 +294,16 @@ int write(int fd, const void *buffer, unsigned size)
 }
 
 void seek(int fd, unsigned position)
-{	
+{
 	struct file *f = process_get_file(fd);
 	file_seek(f, position);
 }
 
 unsigned tell(int fd)
-{		
+{
 	struct file *f = process_get_file(fd);
-	if(f == NULL) {
+	if (f == NULL)
+	{
 		thread_current()->exit_status = -1;
 		return -1;
 	}

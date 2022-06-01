@@ -218,8 +218,16 @@ int process_exec(void *f_name)
 	}
 
 	/* And then load the binary */
-	success = load(arg_list[0], &_if); /* 해당 바이너리 파일을 메모리에 로드하기 */
-	argument_stack(token_count, arg_list, &_if);
+	if (token_count == 0)
+	{
+		success = load(f_name, &_if); /* 해당 바이너리 파일을 메모리에 로드하기 */
+		argument_stack(token_count, f_name, &_if);
+	}
+	else
+	{
+		success = load(arg_list[0], &_if); /* 해당 바이너리 파일을 메모리에 로드하기 */
+		argument_stack(token_count, arg_list, &_if);
+	}
 
 	// struct thread *t = thread_current();
 	// sema_up(&(t->parent_process->load_sema));

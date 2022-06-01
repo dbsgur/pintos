@@ -184,7 +184,7 @@ pid_t fork(const char *thread_name)
 	*/
 }
 
-pid_t exec(const char *cmd_line)
+int exec(const char *cmd_line)
 {
 	check_address(cmd_line);
 	char *cmd_line_copy;

@@ -169,12 +169,17 @@ error:
  인터럽트 종료를 통해 유저프로그램으로 점프
  */
 int process_exec(void *f_name)
-{
+{	
 	char *file_name_copy;
 	bool success;
 
+	/* Make a copy of FILE_NAME.
+	 * Otherwise there's a race between the caller and load(). */
+	file_name_copy = palloc_get_page(0);
+	if (file_name_copy == NULL)
+		return TID_ERROR;
 	memcpy(file_name_copy, f_name, strlen(f_name) + 1);
-	// printf("#######filename: %s\n",file_name_copy);
+
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -185,7 +190,6 @@ int process_exec(void *f_name)
 
 	/* We first kill the current context */
 	process_cleanup();
-
 	//파싱하기
 	int token_count = 0;
 	char *token, *last;
@@ -206,14 +210,16 @@ int process_exec(void *f_name)
 	success = load(arg_list[0], &_if); //해당 바이너리 파일을 메모리에 로드하기
 	argument_stack(token_count, arg_list, &_if);
 	
-	struct thread *t = thread_current();
+	// struct thread *t = thread_current();
 	// sema_up(&(t->parent_process->load_sema));
 
 	/* If load failed, quit. */
-	palloc_free_page(f_name);
+	palloc_free_page(file_name_copy);
+	/* file name과 file_name copy도 해지 */
 	if (!success)
+		// t->exit_status = -1;
 		return -1; 
-	t->load_status = 0;
+	// t->load_status = 0;
 
 	//유저 프로그램이 실행되기 전에 스택에 인자 저장
 
@@ -221,7 +227,7 @@ int process_exec(void *f_name)
 	// void **rspp = &_if.rsp;
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)*rspp, true);
 
-	// palloc_free_page(file_name_copy);
+// palloc_free_page(file_name_copy);
 	/* Start switched process.
 		 생성된 프로*/
 	do_iret(&_if); // 유저 프로그램 실행
@@ -239,14 +245,55 @@ int process_exec(void *f_name)
  * does nothing. */
 int process_wait(tid_t child_tid UNUSED)
 {
+
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:      to add infinite loop here before
 	 * XXX:      implementing the process_wait. */
+
+
 	int i = 0;
 	while (i != 100000000)
 	{
 		i++;
 	}
+
+	// struct thread *t = thread_current();
+
+	// /* 자식 프로세스의 프로세스 디스크립터 검색 */
+	// struct thread *children;
+	// struct list *children_list = &t->children;
+	// if (!list_empty (&children_list)){
+	// 	struct list_elem * curr = list_begin (&children_list);
+	// 	struct thread * curr_thread;
+	// 	while(list_end (&children_list) != curr){
+	// 		curr_thread = list_entry(curr, struct thread, elem);
+	// 		if(curr_thread->tid == child_tid){
+	// 			children = curr_thread;
+	// 			break;
+	// 		}else{
+	// 			curr = list_next(curr);
+	// 		}
+	// 	}
+	// }
+	// /* 예외 처리 발생시 -1 리턴 */
+	// if(children == NULL) {
+	// 	return -1;
+	// }
+
+	// /* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
+	// sema_down(&t->exit_sema);
+
+	// /* 자식 프로세스 디스크립터 삭제 */
+	// /* 자식 프로세스의 exit status 리턴 */
+
+
+
+	// if(children->load_status == 0) {
+	// 	return tid;
+	// }
+
+	// thread_current()->exit_status = -1;
+	// return children->exit_status;
 	return -1;
 }
 

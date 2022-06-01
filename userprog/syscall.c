@@ -175,32 +175,33 @@ pid_t fork(const char *thread_name)
 
 pid_t exec(const char *cmd_line)
 {	
-	struct thread *t = thread_current();
-	tid_t tid = process_create_initd(cmd_line);
-	sema_down(&t->load_sema);
+	check_address(cmd_line);
+	if(process_exec(cmd_line) < 0) {
+		return -1;
+	};
+	return 0;
+	// tid_t tid = process_create_initd(cmd_line);
+	// sema_down(&t->load_sema);
 
-	struct thread *children;
-	struct list *children_list = &t->children;
-	if (!list_empty (&children_list)){
-		struct list_elem * curr = list_begin (&children_list);
-		struct thread * curr_thread;
-		while(list_end (&children_list) != curr){
-			curr_thread = list_entry(curr, struct thread, elem);
-			if(curr_thread->tid == tid){
-				children = curr_thread;
-				break;
-			}else{
-				curr = list_next(curr);
-			}
-		}
-	}
+	// struct thread *children;
+	// struct list *children_list = &t->children;
+	// if (!list_empty (&children_list)){
+	// 	struct list_elem * curr = list_begin (&children_list);
+	// 	struct thread * curr_thread;
+	// 	while(list_end (&children_list) != curr){
+	// 		curr_thread = list_entry(curr, struct thread, elem);
+	// 		if(curr_thread->tid == tid){
+	// 			children = curr_thread;
+	// 			break;
+	// 		}else{
+	// 			curr = list_next(curr);
+	// 		}
+	// 	}
+	// }
 
-	if(children->load_status == 0) {
-		return tid;
-	}
-
-	thread_current()->exit_status = -1;
-	return -1;
+	// if(children->load_status == 0) {
+	// 	return tid;
+	// }
 }
 
 /* unsigned는 unsigned int의 축약형, unisigned는 4바이트, off_t는 음수2바이트, 양수 2바이트)*/

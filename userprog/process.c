@@ -50,8 +50,18 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	memcpy(fn_copy, file_name, PGSIZE);
 
+	char *fn_copy2;
+	fn_copy2 = palloc_get_page(0);
+	if (fn_copy2 == NULL) 
+		return TID_ERROR;
+	memcpy(fn_copy2, fn_copy, PGSIZE);
+
+	char *save_ptr;
+	char *title;
+	title = strtok_r(fn_copy2," ",&save_ptr); // 첫번째 인자
+
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(fn_copy, PRI_DEFAULT, initd, fn_copy); //특정 기능을 가진 스레드 생성
+	tid = thread_create(title, PRI_DEFAULT, initd, fn_copy); //특정 기능을 가진 스레드 생성
 
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
@@ -190,7 +200,8 @@ int process_exec(void *f_name)
 
 	/* We first kill the current context */
 	process_cleanup();
-	//파싱하기
+	
+	/* 파싱하기 */
 	int token_count = 0;
 	char *token, *last;
 	char *arg_list[65];
@@ -207,7 +218,7 @@ int process_exec(void *f_name)
 	}
 
 	/* And then load the binary */
-	success = load(arg_list[0], &_if); //해당 바이너리 파일을 메모리에 로드하기
+	success = load(arg_list[0], &_if); /* 해당 바이너리 파일을 메모리에 로드하기 */
 	argument_stack(token_count, arg_list, &_if);
 	
 	// struct thread *t = thread_current();
@@ -863,7 +874,7 @@ void argument_stack(int argc, char **argv, struct intr_frame *if_)
 		if_->rsp = if_->rsp - 8;
 		memcpy(if_->rsp, &arg_address[i], sizeof(char **));
 	}
-	strlcpy(thread_current()->name, *(&arg_address[0]), sizeof(char[16]));
+	// strlcpy(thread_current()->name, *(&arg_address[0]), sizeof(char[16]));
 	/* fake addr 0 넣어주기 */
 	if_->rsp = if_->rsp - 8;
 	*(int8_t *)if_->rsp = 0;

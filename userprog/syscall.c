@@ -176,10 +176,9 @@ pid_t fork(const char *thread_name)
 pid_t exec(const char *cmd_line)
 {	
 	check_address(cmd_line);
-	if(process_exec(cmd_line) < 0) {
+	if(process_exec(cmd_line) == -1) {
 		return -1;
 	};
-	return 0;
 	// tid_t tid = process_create_initd(cmd_line);
 	// sema_down(&t->load_sema);
 

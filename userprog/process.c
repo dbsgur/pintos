@@ -271,35 +271,31 @@ int process_wait(tid_t child_tid UNUSED)
 	 * XXX:      to add infinite loop here before
 	 * XXX:      implementing the process_wait. */
 
-	int i = 0;
-	while (i != 100000000)
-	{
-		i++;
-	}
+	// int i = 0;
+	// while (i != 100000000)
+	// {
+	// 	i++;
+	// }
 
-	// struct thread *t = thread_current();
+	struct thread *t = thread_current();
 
 	// /* 자식 프로세스의 프로세스 디스크립터 검색 */
-	// struct thread *children;
-	// struct list *children_list = &t->children;
-	// if (!list_empty (&children_list)){
-	// 	struct list_elem * curr = list_begin (&children_list);
-	// 	struct thread * curr_thread;
-	// 	while(list_end (&children_list) != curr){
-	// 		curr_thread = list_entry(curr, struct thread, elem);
-	// 		if(curr_thread->tid == child_tid){
-	// 			children = curr_thread;
-	// 			break;
-	// 		}else{
-	// 			curr = list_next(curr);
-	// 		}
-	// 	}
-	// }
-	// /* 예외 처리 발생시 -1 리턴 */
-	// if(children == NULL) {
-	// 	return -1;
-	// }
+	struct thread *children = get_child_process(child_tid);
 
+	// /* 예외 처리 발생시 -1 리턴 */
+	if (children == NULL)
+	{
+		return -1;
+	}
+	else
+	{
+		sema_down(&t->wait_sema);
+		sema_down(&t->exit_sema);
+		list_remove(&children->child_elem);
+		sema_up(&t->exit_sema);
+	}
+
+	return children->exit_status;
 	// /* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
 	// sema_down(&t->exit_sema);
 
@@ -312,7 +308,7 @@ int process_wait(tid_t child_tid UNUSED)
 
 	// thread_current()->exit_status = -1;
 	// return children->exit_status;
-	return -1;
+	// return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -330,6 +326,8 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+	sema_up(&curr->wait_sema);
+
 	process_cleanup();
 }
 

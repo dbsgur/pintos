@@ -90,11 +90,11 @@ typedef int tid_t;
 struct thread
 {
 	/* Owned by thread.c. */
-	tid_t tid;								/* Thread identifier. */
-	enum thread_status status; 				/* Thread state. */
-	char name[16];						 	/* Name (for debugging purposes). */
-	int priority;							/* Priority. */
-	int64_t tick;							/* 깨어냐야 할 tick을 저장할 변수 */
+	tid_t tid;								 /* Thread identifier. */
+	enum thread_status status; /* Thread state. */
+	char name[16];						 /* Name (for debugging purposes). */
+	int priority;							 /* Priority. */
+	int64_t tick;							 /* 깨어냐야 할 tick을 저장할 변수 */
 
 	int init_priority;
 	struct lock *wait_on_lock;
@@ -105,7 +105,7 @@ struct thread
 	struct list_elem elem; /* List element. */
 
 	/* fdt는 file descriptor 테이블을 가리킨다 */
-	/* 현재 테이블에 존재하는 fd값의 최대값 + 1로 다음에 할당될 fd의 값 */ 
+	/* 현재 테이블에 존재하는 fd값의 최대값 + 1로 다음에 할당될 fd의 값 */
 	struct file **fdt;
 	int next_fd;
 
@@ -115,13 +115,14 @@ struct thread
 	struct list_elem child_elem;
 	/* 자식 리스트 */
 	struct list children;
-	
+
 	/* 프로세스의 프로그램 메모리 적재 유무 */
-		/* 프로세스가 종료 유무 확인 */
-		/* exit 세마포어 */
-		/* load 세마포어 */
-	struct semaphore exit_sema; 
-	struct semaphore load_sema; 
+	/* 프로세스가 종료 유무 확인 */
+	/* exit 세마포어 */
+	/* load 세마포어 */
+	struct semaphore exit_sema;
+	struct semaphore load_sema;
+	struct semaphore wait_sema;
 
 	/*load 성공 플래그*/
 	int load_status;
@@ -189,6 +190,5 @@ void do_iret(struct intr_frame *tf);
 void donate_priority(void);
 void remove_with_lock(struct lock *lock);
 void refresh_priority(void);
-
 
 #endif /* threads/thread.h */

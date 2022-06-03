@@ -167,8 +167,10 @@ void halt(void)
 void exit(int status)
 {
 	struct thread *curr = thread_current();
+	curr->exit_status = status;
 	printf("%s: exit(%d)\n", curr->name, status);
 	thread_exit();
+	// sema_up(&curr->wait_sema);
 }
 
 pid_t fork(const char *thread_name)

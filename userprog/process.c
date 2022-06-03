@@ -669,7 +669,7 @@ int process_add_file(struct file *f)
 struct file *process_get_file(int fd)
 {
 	struct thread *t = thread_current();
-	if ((fd >= t->next_fd))
+	if (fd >= t->next_fd || fd < 2)
 	{
 		return NULL;
 	}

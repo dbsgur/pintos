@@ -89,7 +89,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(f->R.rdi);
 		break;
 	case SYS_FORK:
-		/* code */
 		break;
 	case SYS_EXEC:
 		f->R.rax = exec(f->R.rdi);
@@ -114,13 +113,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
-		res = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		f->R.rax = res;
-		// if(res ==-1) {
-		// 	exit(-1);
-		// } else {
-		// 	f->R.rax = res;
-		// }
+		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		// res = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		// f->R.rax = res;
 		break;
 	case SYS_SEEK:
 		seek(f->R.rdi, f->R.rsi);
@@ -136,27 +131,19 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(-1);
 		break;
 	}
-	if (thread_current()->exit_status == -1)
-	{
-		exit(-1);
-	}
+	// if (thread_current()->exit_status == -1)
+	// {
+	// 	exit(-1);
+	// }
 }
 
 void check_address(void *addr)
 {
 	// pml4_get_page addr에 페이지 할당 여부 가능한지
-	//
 	if ((pml4_get_page(thread_current()->pml4, addr) == NULL) || (is_kernel_vaddr(addr)) || (addr == NULL))
 	{
-		thread_current()->exit_status = -1;
 		exit(-1);
 	}
-	/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
-	// if (addr == NULL || !is_user_vaddr(addr))
-	// { /* 잘못된 접근일 경우 프로세스 종료 */
-	// 	thread_current()->exit_status = -1;
-	// 	exit(-1);
-	// }
 }
 
 void halt(void)
@@ -168,9 +155,8 @@ void exit(int status)
 {
 	struct thread *curr = thread_current();
 	curr->exit_status = status;
-	printf("%s: exit(%d)\n", curr->name, status);
+	printf("%s: exit(%d)\n", curr->name, curr->exit_status);
 	thread_exit();
-	// sema_up(&curr->wait_sema);
 }
 
 pid_t fork(const char *thread_name)
@@ -229,7 +215,6 @@ int filesize(int fd)
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 	{
-		thread_current()->exit_status = -1;
 		return -1;
 	}
 	return file_length(f);
@@ -253,7 +238,6 @@ int read(int fd, void *buffer, unsigned size)
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 	{
-		thread_current()->exit_status = -1;
 		return -1;
 	}
 	lock_acquire(&filesys_lock);
@@ -262,7 +246,6 @@ int read(int fd, void *buffer, unsigned size)
 
 	if (read_bytes < size)
 	{
-		thread_current()->exit_status = -1;
 		return -1;
 	}
 	return read_bytes;
@@ -273,7 +256,6 @@ int write(int fd, const void *buffer, unsigned size)
 	check_address(buffer);
 	if (fd == 0)
 	{
-		thread_current()->exit_status = -1;
 		return -1;
 	}
 
@@ -286,12 +268,12 @@ int write(int fd, const void *buffer, unsigned size)
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 	{
-		thread_current()->exit_status = -1;
 		return -1;
 	}
 	lock_acquire(&filesys_lock);
-	int byte = file_write(process_get_file(fd), buffer, size);
+	int byte = file_write(f, buffer, size);
 	lock_release(&filesys_lock);
+
 	return byte;
 }
 
@@ -306,7 +288,6 @@ unsigned tell(int fd)
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 	{
-		thread_current()->exit_status = -1;
 		return -1;
 	}
 	return file_tell(f);
@@ -319,6 +300,5 @@ void close(int fd)
 
 int wait(pid_t pid)
 {
-	// pid process's children's exit status를 확인하면 되는데
 	process_wait(pid);
 }

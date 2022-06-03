@@ -266,49 +266,26 @@ int process_exec(void *f_name)
  * does nothing. */
 int process_wait(tid_t child_tid UNUSED)
 {
-
-	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
-	 * XXX:      to add infinite loop here before
-	 * XXX:      implementing the process_wait. */
-
-	// int i = 0;
-	// while (i != 100000000)
-	// {
-	// 	i++;
-	// }
-
 	struct thread *t = thread_current();
 
-	// /* 자식 프로세스의 프로세스 디스크립터 검색 */
-	struct thread *children = get_child_process(child_tid);
-
-	// /* 예외 처리 발생시 -1 리턴 */
+	/* 자식 프로세스의 프로세스 디스크립터 검색 */
+	struct thread *children;
+	struct list *children_list = &t->children;
+	children = get_child_process(child_tid);
+	/* 예외 처리 발생시 -1 리턴 */
 	if (children == NULL)
 	{
 		return -1;
 	}
-	else
-	{
-		sema_down(&t->wait_sema);
-		sema_down(&t->exit_sema);
-		list_remove(&children->child_elem);
-		sema_up(&t->exit_sema);
-	}
 
-	return children->exit_status;
-	// /* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
+	/* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
 	// sema_down(&t->exit_sema);
-
-	// /* 자식 프로세스 디스크립터 삭제 */
-	// /* 자식 프로세스의 exit status 리턴 */
-
-	// if(children->load_status == 0) {
-	// 	return tid;
-	// }
-
-	// thread_current()->exit_status = -1;
-	// return children->exit_status;
-	// return -1;
+	sema_down(&children->wait_sema);
+	/* 자식 프로세스 디스크립터 삭제 */
+	list_remove(&children->child_elem);
+	// sema_up(&children->exit_sema);
+	/* 자식 프로세스의 exit status 리턴 */
+	return children->exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -327,6 +304,7 @@ void process_exit(void)
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	sema_up(&curr->wait_sema);
+	// sema_down(&curr->exit_sema);
 
 	process_cleanup();
 }

@@ -319,5 +319,6 @@ void close(int fd)
 
 int wait(pid_t pid)
 {
+	// pid process's children's exit status를 확인하면 되는데
 	process_wait(pid);
 }

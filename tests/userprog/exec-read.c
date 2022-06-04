@@ -20,7 +20,6 @@ void test_main(void)
   CHECK((byte_cnt = read(handle, buffer, 20)) == 20,
         "read \"sample.txt\" first 20 bytes");
 
-  puts("hello!!");
   if ((pid = fork("child-read")))
   {
     wait(pid);

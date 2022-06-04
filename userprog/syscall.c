@@ -48,7 +48,7 @@ int wait(pid_t pid);
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
 static struct lock filesys_lock;
-static struct intr_frame *if_;
+static struct intr_frame if_;
 
 void syscall_init(void)
 {
@@ -66,7 +66,7 @@ void syscall_init(void)
 }
 
 /* The main system call interface */
-void syscall_handler(struct intr_frame *f UNUSED)
+void syscall_handler(struct intr_frame *f)
 {
 	/*
 	인자 들어오는 순서:
@@ -78,7 +78,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	6번째 인자: %r9
 	*/
 	// TODO: Your implementation goes here.
-	if_ = f;
+
+	/* 해제 필요 */ /* or 단순 포인터 복사 */
+	memcpy(&if_, f, sizeof(struct intr_frame)); 
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer);
 	uint64_t system_call_number = f->R.rax;
@@ -135,10 +137,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(-1);
 		break;
 	}
-	// if (thread_current()->exit_status == -1)
-	// {
-	// 	exit(-1);
-	// }
 }
 
 void check_address(void *addr)
@@ -165,7 +163,8 @@ void exit(int status)
 
 pid_t fork(const char *thread_name)
 {
-	pid_t child_pid = process_fork(thread_name, if_);
+	thread_current()->temp_tf = if_;
+	pid_t child_pid = process_fork(thread_name, &if_);
 	if (child_pid == -1)
 	{
 		return -1;
@@ -177,7 +176,6 @@ pid_t fork(const char *thread_name)
 		return 0;
 	}
 	return child_pid;
-	// rbx, rsp, rbp, r12-r15까지 복사
 	/*return pid of child process
 		in child : return value == 0
 		parent : return value > 0

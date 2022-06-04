@@ -84,16 +84,8 @@ initd(void *f_name)
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
-{
-	// if_ : parent iterrupt frame
-	// intr_disable();
-	struct intr_frame *copy_frame;
-	copy_frame = palloc_get_page(0);
-	if (copy_frame == NULL)
-		return TID_ERROR;
-	memcpy(copy_frame, if_, sizeof(struct intr_frame));
-	thread_current()->tf = *copy_frame;
-	/* Clone current thread to new thread.*/
+{	
+	
 	return thread_create(name,
 											 PRI_DEFAULT, __do_fork, thread_current());
 }
@@ -164,11 +156,17 @@ __do_fork(void *aux)
 	struct thread *parent = (struct thread *)aux;
 	struct thread *current = thread_current();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct intr_frame *parent_if = &parent->temp_tf;
 	bool succ = true;
-
+	// printf("hello!");
+	// intr_dump_frame(parent_if);
 	/* 1. Read the cpu context to local stack. */
+	// printf("hellO");
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
+	// printf("hello!");
+	// intr_dump_frame(if_);
+	// printf("hello!");
+	if_.R.rax = 0;
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();

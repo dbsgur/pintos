@@ -85,6 +85,14 @@ initd(void *f_name)
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {
+	// if_ : parent iterrupt frame
+	// intr_disable();
+	struct intr_frame *copy_frame;
+	copy_frame = palloc_get_page(0);
+	if (copy_frame == NULL)
+		return TID_ERROR;
+	memcpy(copy_frame, if_, PGSIZE);
+	thread_current()->tf = *copy_frame;
 	/* Clone current thread to new thread.*/
 	return thread_create(name,
 											 PRI_DEFAULT, __do_fork, thread_current());
@@ -95,6 +103,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
  * pml4_for_each. This is only for the project 2. */
 static bool
 duplicate_pte(uint64_t *pte, void *va, void *aux)
+// pte : page table entry || va : 물리주소 (페이지)
 {
 	struct thread *current = thread_current();
 	struct thread *parent = (struct thread *)aux;
@@ -103,24 +112,44 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
-
+	if (is_kernel_vaddr(va)) // va : user 영역 가상 주소
+	{
+		return true;
+	}
 	/* 2. Resolve VA from the parent's page map level 4. */
-	parent_page = pml4_get_page(parent->pml4, va);
-
+	parent_page = pml4_get_page(parent->pml4, va); // pte가 가리키는 page  주소
+	if (parent_page == NULL)
+	{
+		return false;
+	}
+	// pte -> parent page table entry
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
+	newpage = palloc_get_page(PAL_USER);
+	if (newpage == NULL)
+	{
+		return false;
+	}
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
+	memcpy(newpage, parent_page, PGSIZE);
 
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
+	writable = is_writable(pte);
+
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
 		/* 6. TODO: if fail to insert page, do error handling. */
+		return false;
+		// exit(-1);
+		// goto error;
 	}
 	return true;
+	// error:
+	// 	thread_exit();
 }
 #endif
 
@@ -161,9 +190,14 @@ __do_fork(void *aux)
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-
-	process_init();
-
+	file_duplicate(parent->fdt);
+	int fdn;
+	for (fdn = 2; fdn < parent->next_fd; fdn++)
+	{
+		current->fdt[fdn] = file_duplicate(parent->fdt[fdn]);
+	}
+	// process_init();
+	sema_up(&current->load_sema);
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);

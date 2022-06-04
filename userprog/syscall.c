@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "lib/string.h"
 
+pid_t fork(const char *thread_name);
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 void check_address(void *addr);
@@ -47,6 +48,7 @@ int wait(pid_t pid);
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
 static struct lock filesys_lock;
+static struct intr_frame *if_;
 
 void syscall_init(void)
 {
@@ -76,6 +78,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	6번째 인자: %r9
 	*/
 	// TODO: Your implementation goes here.
+	if_ = f;
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer);
 	uint64_t system_call_number = f->R.rax;
@@ -89,6 +92,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(f->R.rdi);
 		break;
 	case SYS_FORK:
+		fork(f->R.rdi);
 		break;
 	case SYS_EXEC:
 		f->R.rax = exec(f->R.rdi);
@@ -161,6 +165,9 @@ void exit(int status)
 
 pid_t fork(const char *thread_name)
 {
+	pid_t child_pid = process_fork(thread_name, if_);
+	struct thread *children = get_child_process(child_pid);
+	sema_down(&children->load_sema);
 	// rbx, rsp, rbp, r12-r15까지 복사
 	/*return pid of child process
 		in child : return value == 0

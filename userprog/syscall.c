@@ -92,7 +92,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(f->R.rdi);
 		break;
 	case SYS_FORK:
-		fork(f->R.rdi);
+		f->R.rax = fork(f->R.rdi);
 		break;
 	case SYS_EXEC:
 		f->R.rax = exec(f->R.rdi);
@@ -166,8 +166,17 @@ void exit(int status)
 pid_t fork(const char *thread_name)
 {
 	pid_t child_pid = process_fork(thread_name, if_);
+	if (child_pid == -1)
+	{
+		return -1;
+	}
 	struct thread *children = get_child_process(child_pid);
 	sema_down(&children->load_sema);
+	if (child_pid == thread_current()->tid)
+	{
+		return 0;
+	}
+	return child_pid;
 	// rbx, rsp, rbp, r12-r15까지 복사
 	/*return pid of child process
 		in child : return value == 0

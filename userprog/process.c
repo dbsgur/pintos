@@ -91,7 +91,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	copy_frame = palloc_get_page(0);
 	if (copy_frame == NULL)
 		return TID_ERROR;
-	memcpy(copy_frame, if_, PGSIZE);
+	memcpy(copy_frame, if_, sizeof(struct intr_frame));
 	thread_current()->tf = *copy_frame;
 	/* Clone current thread to new thread.*/
 	return thread_create(name,
@@ -190,7 +190,6 @@ __do_fork(void *aux)
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	file_duplicate(parent->fdt);
 	int fdn;
 	for (fdn = 2; fdn < parent->next_fd; fdn++)
 	{
@@ -202,7 +201,9 @@ __do_fork(void *aux)
 	if (succ)
 		do_iret(&if_);
 error:
-	thread_exit();
+	sema_up(&current->load_sema);
+	exit(-1);
+	// thread_exit();
 }
 
 /* Switch the current execution context to the f_name.

@@ -79,7 +79,7 @@ void syscall_handler(struct intr_frame *f)
 	*/
 	// TODO: Your implementation goes here.
 
-	/* 해제 필요 */ /* or 단순 포인터 복사 */
+	/* 여기서 모드가 바뀔 것으로 추정. 복사는 여기서 일어나야함 */
 	memcpy(&if_, f, sizeof(struct intr_frame)); 
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer);
@@ -120,8 +120,6 @@ void syscall_handler(struct intr_frame *f)
 		break;
 	case SYS_WRITE:
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		// res = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		// f->R.rax = res;
 		break;
 	case SYS_SEEK:
 		seek(f->R.rdi, f->R.rsi);
@@ -141,7 +139,7 @@ void syscall_handler(struct intr_frame *f)
 
 void check_address(void *addr)
 {
-	// pml4_get_page addr에 페이지 할당 여부 가능한지
+	/* pml4_get_page addr에 페이지 할당 여부 가능한지 */
 	if ((pml4_get_page(thread_current()->pml4, addr) == NULL) || (is_kernel_vaddr(addr)) || (addr == NULL))
 	{
 		exit(-1);
@@ -163,7 +161,7 @@ void exit(int status)
 
 pid_t fork(const char *thread_name)
 {
-	thread_current()->temp_tf = if_;
+
 	pid_t child_pid = process_fork(thread_name, &if_);
 	if (child_pid == -1)
 	{
@@ -171,10 +169,6 @@ pid_t fork(const char *thread_name)
 	}
 	struct thread *children = get_child_process(child_pid);
 	sema_down(&children->load_sema);
-	if (child_pid == thread_current()->tid)
-	{
-		return 0;
-	}
 	return child_pid;
 	/*return pid of child process
 		in child : return value == 0

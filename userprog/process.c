@@ -85,7 +85,7 @@ initd(void *f_name)
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 {	
-	
+	thread_current()->temp_tf = *if_;
 	return thread_create(name,
 											 PRI_DEFAULT, __do_fork, thread_current());
 }
@@ -158,14 +158,8 @@ __do_fork(void *aux)
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame *parent_if = &parent->temp_tf;
 	bool succ = true;
-	// printf("hello!");
-	// intr_dump_frame(parent_if);
-	/* 1. Read the cpu context to local stack. */
-	// printf("hellO");
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
-	// printf("hello!");
-	// intr_dump_frame(if_);
-	// printf("hello!");
+	/* 자식 프로세스이므로 return 값을 0이로 설정 pid = 0 */
 	if_.R.rax = 0;
 
 	/* 2. Duplicate PT */
@@ -262,9 +256,6 @@ int process_exec(void *f_name)
 		argument_stack(token_count, arg_list, &_if);
 	}
 
-	// struct thread *t = thread_current();
-	// sema_up(&(t->parent_process->load_sema));
-
 	/* If load failed, quit. */
 	palloc_free_page(file_name_copy);
 	/* file name과 file_name copy도 해지 */
@@ -273,16 +264,11 @@ int process_exec(void *f_name)
 		palloc_free_page(f_name);
 		return -1;
 	}
-	// t->load_status = 0;
-
-	//유저 프로그램이 실행되기 전에 스택에 인자 저장
 
 	// void **rspp = &_if.rsp;
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)*rspp, true);
 
-	// palloc_free_page(file_name_copy);
-	/* Start switched process.
-		 생성된 프로*/
+	/* Start switched process. 생성된 프로*/
 	palloc_free_page(f_name);
 	do_iret(&_if); // 유저 프로그램 실행
 	NOT_REACHED();

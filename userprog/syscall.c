@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "lib/string.h"
 
+pid_t fork(const char *thread_name);
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 void check_address(void *addr);
@@ -47,6 +48,7 @@ int wait(pid_t pid);
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
 static struct lock filesys_lock;
+static struct intr_frame if_;
 
 void syscall_init(void)
 {
@@ -64,7 +66,7 @@ void syscall_init(void)
 }
 
 /* The main system call interface */
-void syscall_handler(struct intr_frame *f UNUSED)
+void syscall_handler(struct intr_frame *f)
 {
 	/*
 	인자 들어오는 순서:
@@ -76,6 +78,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	6번째 인자: %r9
 	*/
 	// TODO: Your implementation goes here.
+
+	/* 여기서 모드가 바뀔 것으로 추정. 복사는 여기서 일어나야함 */
+	memcpy(&if_, f, sizeof(struct intr_frame)); 
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer);
 	uint64_t system_call_number = f->R.rax;
@@ -89,6 +94,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(f->R.rdi);
 		break;
 	case SYS_FORK:
+		f->R.rax = fork(f->R.rdi);
 		break;
 	case SYS_EXEC:
 		f->R.rax = exec(f->R.rdi);
@@ -114,8 +120,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 	case SYS_WRITE:
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		// res = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		// f->R.rax = res;
 		break;
 	case SYS_SEEK:
 		seek(f->R.rdi, f->R.rsi);
@@ -131,15 +135,11 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		exit(-1);
 		break;
 	}
-	// if (thread_current()->exit_status == -1)
-	// {
-	// 	exit(-1);
-	// }
 }
 
 void check_address(void *addr)
 {
-	// pml4_get_page addr에 페이지 할당 여부 가능한지
+	/* pml4_get_page addr에 페이지 할당 여부 가능한지 */
 	if ((pml4_get_page(thread_current()->pml4, addr) == NULL) || (is_kernel_vaddr(addr)) || (addr == NULL))
 	{
 		exit(-1);
@@ -161,7 +161,15 @@ void exit(int status)
 
 pid_t fork(const char *thread_name)
 {
-	// rbx, rsp, rbp, r12-r15까지 복사
+
+	pid_t child_pid = process_fork(thread_name, &if_);
+	if (child_pid == -1)
+	{
+		return -1;
+	}
+	struct thread *children = get_child_process(child_pid);
+	sema_down(&children->load_sema);
+	return child_pid;
 	/*return pid of child process
 		in child : return value == 0
 		parent : return value > 0

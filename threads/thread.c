@@ -211,6 +211,7 @@ tid_t thread_create(const char *name, int priority,
 
 	t->next_fd = 2;
 	t->fdt = palloc_get_page(PAL_ZERO);
+	
 
 	struct thread *curr = thread_current();
 	/* 부모 프로세스 저장 */

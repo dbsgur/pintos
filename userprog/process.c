@@ -84,7 +84,7 @@ initd(void *f_name)
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
-{	
+{
 	thread_current()->temp_tf = *if_;
 	return thread_create(name,
 											 PRI_DEFAULT, __do_fork, thread_current());
@@ -183,8 +183,13 @@ __do_fork(void *aux)
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 	int fdn;
+	current->next_fd = parent->next_fd;
 	for (fdn = 2; fdn < parent->next_fd; fdn++)
 	{
+		if (parent->fdt[fdn] == NULL)
+		{
+			continue;
+		}
 		current->fdt[fdn] = file_duplicate(parent->fdt[fdn]);
 	}
 	// process_init();

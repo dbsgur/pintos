@@ -12,6 +12,9 @@
     "palloc.h": "c",
     "stdio.h": "c",
     "string.h": "c",
-    "thread.h": "c"
+    "thread.h": "c",
+    "filesys.h": "c",
+    "lib.h": "c",
+    "main.h": "c"
   }
 }

@@ -164,6 +164,8 @@ __do_fork(void *aux)
 	struct intr_frame *parent_if = &parent->temp_tf;
 	bool succ = true;
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
+	// list_push_back(&parent->children, &current->child_elem);
+
 	/* 자식 프로세스이므로 return 값을 0이로 설정 pid = 0 */
 	if_.R.rax = 0;
 
@@ -301,12 +303,12 @@ int process_wait(tid_t child_tid UNUSED)
 	struct thread *children;
 	struct list *children_list = &t->children;
 	children = get_child_process(child_tid);
+
 	/* 예외 처리 발생시 -1 리턴 */
 	if (children == NULL)
 	{
 		return -1;
 	}
-
 	/* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
 	// sema_down(&t->exit_sema);
 	sema_down(&children->wait_sema);
@@ -314,19 +316,35 @@ int process_wait(tid_t child_tid UNUSED)
 	list_remove(&children->child_elem);
 	// sema_up(&children->exit_sema);
 	/* 자식 프로세스의 exit status 리턴 */
+	// printf("exit_status in wait : %d \n", children->exit_status);
 	return children->exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void process_exit(void)
 {
+	// printf("##################\n");
 	struct thread *curr = thread_current();
 	uint32_t *pd;
-
-	while (--(curr->next_fd) >= 2)
+	struct file **table = curr->fdt;
+	if (curr->run_file)
 	{
-		process_close_file(curr->next_fd);
+		file_close(curr->run_file);
+		curr->run_file = NULL;
 	}
+	for (int cnt = 2; cnt < 128; cnt++)
+	{
+		if (table[cnt])
+		{
+			file_close(table[cnt]);
+			table[cnt] = NULL;
+		}
+	}
+	// while (curr->next_fd >= 2)
+	// {
+	// 	process_close_file(curr->next_fd);
+	// 	curr->next_fd--;
+	// }
 	palloc_free_page(curr->fdt); /* free 는 나중에 */
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
@@ -462,9 +480,10 @@ load(const char *file_name, struct intr_frame *if_)
 	lock_acquire(&open_lock);
 
 	file = filesys_open(file_name); //프로그램 파일 오픈
-
+	// process_add_file(file);
 	if (file == NULL)
 	{
+		file_close(file);
 		lock_release(&open_lock);
 		printf("load: %s: open failed\n", file_name);
 		goto done;
@@ -472,8 +491,8 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* thread 구조체의 run_file을 현재 실행할 파일로 초기화 */
 	/* file_deny_write()를 이용하여 파일에 대한 write를 거부 */
-	t->run_file = file;
 	file_deny_write(file);
+	t->run_file = file;
 	lock_release(&open_lock);
 
 	/* Read and verify executable header.
@@ -561,7 +580,7 @@ load(const char *file_name, struct intr_frame *if_)
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close(file);
+	// file_close(file);
 	return success;
 }
 

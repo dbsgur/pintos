@@ -47,7 +47,7 @@ int wait(pid_t pid);
 #define MSR_LSTAR 0xc0000082				/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-// static struct lock filesys_lock;
+static struct lock filesys_lock;
 static struct intr_frame if_;
 
 void syscall_init(void)
@@ -161,7 +161,7 @@ void exit(int status)
 
 pid_t fork(const char *thread_name)
 {
-
+	check_address(thread_name);
 	pid_t child_pid = process_fork(thread_name, &if_);
 	if (child_pid == -1)
 	{
@@ -211,11 +211,28 @@ int open(const char *file)
 {
 	check_address(file);
 	struct file *f = filesys_open(file);
-	if (f == NULL)
+	struct thread *curr = thread_current();
+	if (f)
 	{
-		return -1; /* 수정 : 비정상 종료 처리를 open 만 해주지 않음 ?*/
+		for (int i = 2; i < 128; i++)
+		{
+			if (!(curr->fdt[i]))
+			{
+				curr->fdt[i] = f;
+				curr->next_fd = i + 1;
+				return i;
+			}
+		}
+		file_close(f);
 	}
-	return process_add_file(f);
+	return -1;
+	// if (f == NULL)
+	// {
+	// 	file_close(f);
+	// 	return -1; /* 수정 : 비정상 종료 처리를 open 만 해주지 않음 ?*/
+	// }
+	// // file_close(f);
+	// return process_add_file(f);
 }
 
 int filesize(int fd)
@@ -237,18 +254,21 @@ int read(int fd, void *buffer, unsigned size)
 		uint8_t key;
 		while (key != '\0')
 		{
+			lock_acquire(&filesys_lock);
 			key = input_getc();
+			lock_release(&filesys_lock);
 			size++;
 		}
 		return size;
 	}
 
+	lock_acquire(&filesys_lock);
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 	{
+		lock_release(&filesys_lock);
 		return -1;
 	}
-	lock_acquire(&filesys_lock);
 	int read_bytes = file_read(f, buffer, size);
 	lock_release(&filesys_lock);
 
@@ -262,27 +282,34 @@ int read(int fd, void *buffer, unsigned size)
 int write(int fd, const void *buffer, unsigned size)
 {
 	check_address(buffer);
-	if (fd == 0)
+	if (fd <= 0 || fd >= thread_current()->next_fd)
 	{
 		return -1;
 	}
 
-	if (fd == 1)
+	else if (fd == 1)
 	{
+		lock_acquire(&filesys_lock);
 		putbuf(buffer, size);
-		return sizeof(buffer);
+		lock_release(&filesys_lock);
+		return size;
+		// return sizeof(buffer);
 	}
 
 	struct file *f = process_get_file(fd);
+
 	if (f == NULL)
 	{
 		return -1;
 	}
-	lock_acquire(&filesys_lock);
-	int byte = file_write(f, buffer, size);
-	lock_release(&filesys_lock);
+	else
+	{
+		lock_acquire(&filesys_lock);
+		int byte = file_write(f, buffer, size);
+		lock_release(&filesys_lock);
 
-	return byte;
+		return byte;
+	}
 }
 
 void seek(int fd, unsigned position)
@@ -303,10 +330,12 @@ unsigned tell(int fd)
 
 void close(int fd)
 {
+	lock_acquire(&filesys_lock);
 	process_close_file(fd);
+	lock_release(&filesys_lock);
 }
 
 int wait(pid_t pid)
 {
-	process_wait(pid);
+	return process_wait(pid);
 }

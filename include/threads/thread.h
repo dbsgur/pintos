@@ -108,8 +108,6 @@ struct thread
 	/* 현재 테이블에 존재하는 fd값의 최대값 + 1로 다음에 할당될 fd의 값 */
 	struct file **fdt;
 	int next_fd;
-	struct file *run_file;
-	// struct list file_list;
 
 	/* 부모 프로세스의 디스크립터 */
 	struct thread *parent_process;

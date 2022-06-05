@@ -274,7 +274,6 @@ int process_exec(void *f_name)
 		palloc_free_page(f_name);
 		return -1;
 	}
-
 	// void **rspp = &_if.rsp;
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - (uint64_t)*rspp, true);
 
@@ -322,7 +321,6 @@ void process_exit(void)
 {
 	struct thread *curr = thread_current();
 	uint32_t *pd;
-
 	while (--(curr->next_fd) >= 2)
 	{
 		process_close_file(curr->next_fd);
@@ -334,7 +332,6 @@ void process_exit(void)
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	sema_up(&curr->wait_sema);
 	// sema_down(&curr->exit_sema);
-
 	process_cleanup();
 }
 
@@ -458,21 +455,18 @@ load(const char *file_name, struct intr_frame *if_)
 	if (t->pml4 == NULL)
 		goto done;
 	process_activate(thread_current()); //레지서터 값을 실행중인 스레드의 페이지 테이블 주소로 변경
-
 	lock_acquire(&open_lock);
-
 	file = filesys_open(file_name); //프로그램 파일 오픈
-
 	if (file == NULL)
 	{
+		file_close(file);
 		lock_release(&open_lock);
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
-
 	/* thread 구조체의 run_file을 현재 실행할 파일로 초기화 */
+	process_add_file(file);
 	/* file_deny_write()를 이용하여 파일에 대한 write를 거부 */
-	t->run_file = file;
 	file_deny_write(file);
 	lock_release(&open_lock);
 
@@ -561,7 +555,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close(file);
 	return success;
 }
 
@@ -707,6 +700,7 @@ int process_add_file(struct file *f)
 struct file *process_get_file(int fd)
 {
 	struct thread *t = thread_current();
+		
 	if (fd >= t->next_fd || fd < 2)
 	{
 		return NULL;

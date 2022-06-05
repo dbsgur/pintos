@@ -212,17 +212,14 @@ void lock_init(struct lock *lock)
 
 	 //	FAIL tests/threads/priority-condvar		FAIL
 void lock_acquire(struct lock *lock)
-{
+{	
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 
-
-	// 소설1 if로 해보고 안 되면 while로 해보기
 	if (lock->holder != NULL){
-
 		struct thread *curr = thread_current();
-		curr->wait_on_lock = lock;		// 소설2 lock에서 & 유무
+		curr->wait_on_lock = lock;	
 		struct thread *lock_holder = lock->holder;
 
 		list_insert_ordered (&lock_holder->donations, &curr->donation_elem, cmp_priority, NULL);

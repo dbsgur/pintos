@@ -47,11 +47,10 @@ int wait(pid_t pid);
 #define MSR_LSTAR 0xc0000082				/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-// static struct lock filesys_lock;
 static struct intr_frame if_;
 
 void syscall_init(void)
-{
+{	
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48 |
 													((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
@@ -67,7 +66,7 @@ void syscall_init(void)
 
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f)
-{
+{	
 	/*
 	인자 들어오는 순서:
 	1번째 인자: %rdi
@@ -109,26 +108,40 @@ void syscall_handler(struct intr_frame *f)
 		f->R.rax = remove(f->R.rdi);
 		break;
 	case SYS_OPEN:
+		// lock_acquire(&filesys_lock);
 		f->R.rax = open(f->R.rdi);
+		// lock_release(&filesys_lock);
 		break;
 	case SYS_FILESIZE:
+		// lock_acquire(&filesys_lock);
 		f->R.rax = filesize(f->R.rdi);
+		// lock_release(&filesys_lock);
 		break;
 	case SYS_READ:
 		/* gitbook : System calls that return a value can do so by modifying the rax member of struct intr_frame.*/
+		// lock_acquire(&filesys_lock);
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+		// lock_release(&filesys_lock);
 		break;
 	case SYS_WRITE:
+		// lock_acquire(&filesys_lock);
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		// lock_release(&filesys_lock);
 		break;
 	case SYS_SEEK:
+		// lock_acquire(&filesys_lock);
 		seek(f->R.rdi, f->R.rsi);
+		// lock_release(&filesys_lock);
 		break;
 	case SYS_TELL:
+		// lock_acquire(&filesys_lock);
 		f->R.rax = tell(f->R.rdi);
+		// lock_release(&filesys_lock);
 		break;
 	case SYS_CLOSE:
+		// lock_acquire(&filesys_lock);
 		close(f->R.rdi);
+		// lock_release(&filesys_lock);
 		break;
 
 	default:
@@ -161,7 +174,6 @@ void exit(int status)
 
 pid_t fork(const char *thread_name)
 {
-
 	pid_t child_pid = process_fork(thread_name, &if_);
 	if (child_pid == -1)
 	{
@@ -170,14 +182,6 @@ pid_t fork(const char *thread_name)
 	struct thread *children = get_child_process(child_pid);
 	sema_down(&children->load_sema);
 	return child_pid;
-	/*return pid of child process
-		in child : return value == 0
-		parent : return value > 0
-	*/
-	/* 자식은 duplicated 리소스 가지고 있어야 한다.
-		- 파일 디스크립터
-		- 가상 메모리공간 포함
-	*/
 }
 
 int exec(const char *cmd_line)
@@ -198,21 +202,32 @@ int exec(const char *cmd_line)
 bool create(const char *file, unsigned initial_size)
 {
 	check_address(file);
-	return filesys_create(file, initial_size);
+	bool ret;
+	lock_acquire(&filesys_lock);
+	ret = filesys_create(file, initial_size);
+	lock_release(&filesys_lock);
+	return ret;
 }
 
 bool remove(const char *file)
 {
 	check_address(file);
-	return filesys_remove(file);
+	bool ret;
+	lock_acquire(&filesys_lock);
+	ret = filesys_remove(file);;
+	lock_release(&filesys_lock);
+	return ret;
 }
 
 int open(const char *file)
 {
 	check_address(file);
+	lock_acquire(&filesys_lock);
 	struct file *f = filesys_open(file);
+	lock_release(&filesys_lock);
 	if (f == NULL)
-	{
+	{	
+		close(f);
 		return -1; /* 수정 : 비정상 종료 처리를 open 만 해주지 않음 ?*/
 	}
 	return process_add_file(f);
@@ -225,7 +240,11 @@ int filesize(int fd)
 	{
 		return -1;
 	}
-	return file_length(f);
+	int ret;
+	lock_acquire(&filesys_lock);
+	ret = file_length(f);
+	lock_release(&filesys_lock);
+	return ret;
 }
 
 int read(int fd, void *buffer, unsigned size)
@@ -288,25 +307,33 @@ int write(int fd, const void *buffer, unsigned size)
 void seek(int fd, unsigned position)
 {
 	struct file *f = process_get_file(fd);
+	lock_acquire(&filesys_lock);
 	file_seek(f, position);
+	lock_release(&filesys_lock);
 }
 
 unsigned tell(int fd)
-{
+{	
 	struct file *f = process_get_file(fd);
 	if (f == NULL)
 	{
 		return -1;
 	}
-	return file_tell(f);
+	int ret;
+	lock_acquire(&filesys_lock);
+	ret = file_tell(f);
+	lock_release(&filesys_lock);
+	return ret;
 }
 
 void close(int fd)
-{
+{	
+	lock_acquire(&filesys_lock);
 	process_close_file(fd);
+	lock_release(&filesys_lock);
 }
 
 int wait(pid_t pid)
 {
-	process_wait(pid);
+	return process_wait(pid);
 }

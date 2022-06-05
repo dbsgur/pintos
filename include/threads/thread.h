@@ -108,6 +108,8 @@ struct thread
 	/* 현재 테이블에 존재하는 fd값의 최대값 + 1로 다음에 할당될 fd의 값 */
 	struct file **fdt;
 	int next_fd;
+	struct file *run_file;
+	// struct list file_list;
 
 	/* 부모 프로세스의 디스크립터 */
 	struct thread *parent_process;
@@ -139,9 +141,9 @@ struct thread
 #endif
 
 	/* Owned by thread.c. */
-	struct intr_frame tf; /* Information for switching */
+	struct intr_frame tf;			 /* Information for switching */
 	struct intr_frame temp_tf; /* Information for switching */
-	unsigned magic;				/* Detects stack overflow. */
+	unsigned magic;						 /* Detects stack overflow. */
 };
 
 /* If false (default), use round-robin scheduler.

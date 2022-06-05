@@ -27,11 +27,14 @@ static bool load(const char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 
+static struct lock open_lock;
+
 /* General process initializer for initd and other process. */
 static void
 process_init(void)
 {
 	struct thread *current = thread_current();
+	lock_init(&open_lock);
 }
 
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
@@ -192,7 +195,7 @@ __do_fork(void *aux)
 		}
 		current->fdt[fdn] = file_duplicate(parent->fdt[fdn]);
 	}
-	// process_init();
+	process_init();
 	sema_up(&current->load_sema);
 	/* Finally, switch to the newly created process. */
 	if (succ)
@@ -316,7 +319,7 @@ int process_wait(tid_t child_tid UNUSED)
 void process_exit(void)
 {
 	struct thread *curr = thread_current();
-	// uint32_t *pd;
+	uint32_t *pd;
 
 	while (--(curr->next_fd) >= 2)
 	{
@@ -454,13 +457,22 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	process_activate(thread_current()); //레지서터 값을 실행중인 스레드의 페이지 테이블 주소로 변경
 
+	lock_acquire(&open_lock);
+
 	file = filesys_open(file_name); //프로그램 파일 오픈
 
 	if (file == NULL)
 	{
+		lock_release(&open_lock);
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
+
+	/* thread 구조체의 run_file을 현재 실행할 파일로 초기화 */
+	/* file_deny_write()를 이용하여 파일에 대한 write를 거부 */
+	t->run_file = file;
+	file_deny_write(file);
+	lock_release(&open_lock);
 
 	/* Read and verify executable header.
 		 ELF파일의 헤더 정보를 읽어와 저장

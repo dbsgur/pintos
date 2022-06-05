@@ -47,7 +47,7 @@ int wait(pid_t pid);
 #define MSR_LSTAR 0xc0000082				/* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-static struct lock filesys_lock;
+// static struct lock filesys_lock;
 static struct intr_frame if_;
 
 void syscall_init(void)
@@ -80,7 +80,7 @@ void syscall_handler(struct intr_frame *f)
 	// TODO: Your implementation goes here.
 
 	/* 여기서 모드가 바뀔 것으로 추정. 복사는 여기서 일어나야함 */
-	memcpy(&if_, f, sizeof(struct intr_frame)); 
+	memcpy(&if_, f, sizeof(struct intr_frame));
 	uintptr_t stack_pointer = f->rsp;
 	check_address(stack_pointer);
 	uint64_t system_call_number = f->R.rax;

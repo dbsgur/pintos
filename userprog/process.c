@@ -18,6 +18,8 @@
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "userprog/syscall.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif

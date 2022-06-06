@@ -190,7 +190,7 @@ __do_fork(void *aux)
 	 * TODO:       the resources of parent.*/
 	int fdn;
 	current->next_fd = parent->next_fd;
-	for (fdn = 2; fdn < parent->next_fd; fdn++)
+	for (fdn = 2; fdn < 128; fdn++)
 	{
 		if (parent->fdt[fdn] == NULL)
 		{

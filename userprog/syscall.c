@@ -97,8 +97,8 @@ void syscall_handler(struct intr_frame *f)
 		f->R.rax = (uint64_t)fork(f->R.rdi);
 		break;
 	case SYS_EXEC:
-		// exec(f->R.rdi);
-		f->R.rax = (uint64_t)exec(f->R.rdi);
+		exec(f->R.rdi);
+		// f->R.rax = (uint64_t)exec(f->R.rdi);
 		break;
 	case SYS_WAIT:
 		f->R.rax = (uint64_t)wait(f->R.rdi);
@@ -141,7 +141,8 @@ void syscall_handler(struct intr_frame *f)
 void check_address(void *addr)
 {
 	/* pml4_get_page addr에 페이지 할당 여부 가능한지 */
-	if ((pml4_get_page(thread_current()->pml4, addr) == NULL) || (is_kernel_vaddr(addr)) || (addr == NULL))
+	// if (pml4_get_page(thread_current()->pml4, addr) == NULL || is_kernel_vaddr(addr) || addr == NULL)
+	if (addr == NULL || is_kernel_vaddr(addr) || pml4_get_page(thread_current()->pml4, addr) == NULL)
 	{
 		exit(-1);
 	}
@@ -188,14 +189,14 @@ int exec(const char *cmd_line)
 	cmd_line_copy = palloc_get_page(0);
 	if (cmd_line_copy == NULL)
 	{
-		// exit(-1);
-		return -1;
+		exit(-1);
+		// return -1;
 	}
 	memcpy(cmd_line_copy, cmd_line, strlen(cmd_line) + 1);
 	if (process_exec(cmd_line_copy) == -1)
 	{
-		// exit(-1);
-		return -1;
+		exit(-1);
+		// return -1;
 	};
 	// return 1;
 }
@@ -218,11 +219,12 @@ int open(const char *file)
 	check_address(file);
 	struct file *f = filesys_open(file);
 	struct thread *curr = thread_current();
+	// printf("%d\n", f);
 	if (f)
 	{
-		for (int i = 2; i < 128; i++)
+		for (int i = 2; i <= 128; i++)
 		{
-			if (!(curr->fdt[i]))
+			if (!curr->fdt[i])
 			{
 				curr->fdt[i] = f;
 				curr->next_fd = i + 1;
@@ -232,13 +234,6 @@ int open(const char *file)
 		file_close(f);
 	}
 	return -1;
-	// if (f == NULL)
-	// {
-	// 	file_close(f);
-	// 	return -1; /* 수정 : 비정상 종료 처리를 open 만 해주지 않음 ?*/
-	// }
-	// // file_close(f);
-	// return process_add_file(f);
 }
 
 int filesize(int fd)

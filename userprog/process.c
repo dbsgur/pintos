@@ -189,32 +189,17 @@ __do_fork(void *aux)
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	int cnt = 2;
-	struct file **table = parent->fdt;
-	while (cnt < 128)
-	{
-		if (table[cnt])
-		{
-			current->fdt[cnt] = file_duplicate(table[cnt]);
-		}
-		else
-		{
-			current->fdt[cnt] = NULL;
-		}
-		cnt++;
-	}
+	int fdn;
 	current->next_fd = parent->next_fd;
-	// int fdn;
-	// current->next_fd = parent->next_fd;
-	// for (fdn = 2; fdn < parent->next_fd; fdn++)
-	// {
-	// 	if (parent->fdt[fdn] == NULL)
-	// 	{
-	// 		continue;
-	// 	}
-	// 	current->fdt[fdn] = file_duplicate(parent->fdt[fdn]);
-	// }
-	// process_init();
+	for (fdn = 2; fdn < parent->next_fd; fdn++)
+	{
+		if (parent->fdt[fdn] == NULL)
+		{
+			continue;
+		}
+		current->fdt[fdn] = file_duplicate(parent->fdt[fdn]);
+	}
+	process_init();
 	sema_up(&current->load_sema);
 	/* Finally, switch to the newly created process. */
 	if (succ)
@@ -324,10 +309,10 @@ int process_wait(tid_t child_tid UNUSED)
 	/* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
 	// sema_down(&t->exit_sema);
 	sema_down(&children->wait_sema);
-	int return_exit_status = children->exit_status;
+	int return_exit_status = children->exit_status; /* 이것 때문에 자식이 먼저 죽으면 안돼 */
 	/* 자식 프로세스 디스크립터 삭제 */
 	list_remove(&children->child_elem);
-	sema_up(&children->exit_sema);
+	sema_up(&children->exit_sema); /* 너 이제 죽어라 */
 	/* 자식 프로세스의 exit status 리턴 */
 	// printf("exit_status in wait : %d \n", children->exit_status);
 	return return_exit_status;
@@ -362,9 +347,9 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	sema_up(&curr->wait_sema);
-	sema_down(&curr->exit_sema);
-	palloc_free_page(table); /* free 는 나중에 */
+	sema_up(&curr->wait_sema);	 /* 부모 일어나 나 죽여 */
+	sema_down(&curr->exit_sema); /* 나 죽을게 죽을 수 있으면 말해줘 */
+	palloc_free_page(table);		 /* free 는 나중에 */
 
 	process_cleanup();
 }

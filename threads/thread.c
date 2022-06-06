@@ -211,7 +211,6 @@ tid_t thread_create(const char *name, int priority,
 
 	t->next_fd = 2;
 	t->fdt = palloc_get_page(PAL_ZERO);
-	
 
 	struct thread *curr = thread_current();
 	/* 부모 프로세스 저장 */
@@ -222,7 +221,7 @@ tid_t thread_create(const char *name, int priority,
 	/* 프로세스가 종료되지 않음 */
 	t->exit_status = 0;
 	/* exit 세마포어 0으로 초기화 */
-	sema_init(&t->exit_sema, 1); // 1 : binary (=lock)
+	sema_init(&t->exit_sema, 0); // 0 : binary (=lock)
 	/* load 세마포어 0으로 초기화 */
 	sema_init(&t->load_sema, 0); // 0 : wait & awake
 	/* wait 세마포어 0으로 초기화 */

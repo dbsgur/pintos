@@ -189,17 +189,32 @@ __do_fork(void *aux)
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	int fdn;
-	current->next_fd = parent->next_fd;
-	for (fdn = 2; fdn < parent->next_fd; fdn++)
+	int cnt = 2;
+	struct file **table = parent->fdt;
+	while (cnt < 128)
 	{
-		if (parent->fdt[fdn] == NULL)
+		if (table[cnt])
 		{
-			continue;
+			current->fdt[cnt] = file_duplicate(table[cnt]);
 		}
-		current->fdt[fdn] = file_duplicate(parent->fdt[fdn]);
+		else
+		{
+			current->fdt[cnt] = NULL;
+		}
+		cnt++;
 	}
-	process_init();
+	current->next_fd = parent->next_fd;
+	// int fdn;
+	// current->next_fd = parent->next_fd;
+	// for (fdn = 2; fdn < parent->next_fd; fdn++)
+	// {
+	// 	if (parent->fdt[fdn] == NULL)
+	// 	{
+	// 		continue;
+	// 	}
+	// 	current->fdt[fdn] = file_duplicate(parent->fdt[fdn]);
+	// }
+	// process_init();
 	sema_up(&current->load_sema);
 	/* Finally, switch to the newly created process. */
 	if (succ)
@@ -222,13 +237,6 @@ int process_exec(void *f_name)
 	char *file_name_copy;
 	bool success;
 
-	/* Make a copy of FILE_NAME.
-	 * Otherwise there's a race between the caller and load(). */
-	file_name_copy = palloc_get_page(0);
-	if (file_name_copy == NULL)
-		return TID_ERROR;
-	memcpy(file_name_copy, f_name, strlen(f_name) + 1);
-
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -239,6 +247,12 @@ int process_exec(void *f_name)
 
 	/* We first kill the current context */
 	process_cleanup();
+	/* Make a copy of FILE_NAME.
+	 * Otherwise there's a race between the caller and load(). */
+	file_name_copy = palloc_get_page(0);
+	if (file_name_copy == NULL)
+		return TID_ERROR;
+	memcpy(file_name_copy, f_name, strlen(f_name) + 1);
 
 	/* 파싱하기 */
 	int token_count = 0;
@@ -306,18 +320,17 @@ int process_wait(tid_t child_tid UNUSED)
 
 	/* 예외 처리 발생시 -1 리턴 */
 	if (children == NULL)
-	{
 		return -1;
-	}
 	/* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
 	// sema_down(&t->exit_sema);
 	sema_down(&children->wait_sema);
+	int return_exit_status = children->exit_status;
 	/* 자식 프로세스 디스크립터 삭제 */
 	list_remove(&children->child_elem);
-	// sema_up(&children->exit_sema);
+	sema_up(&children->exit_sema);
 	/* 자식 프로세스의 exit status 리턴 */
 	// printf("exit_status in wait : %d \n", children->exit_status);
-	return children->exit_status;
+	return return_exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -345,13 +358,13 @@ void process_exit(void)
 	// 	process_close_file(curr->next_fd);
 	// 	curr->next_fd--;
 	// }
-	palloc_free_page(curr->fdt); /* free 는 나중에 */
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	sema_up(&curr->wait_sema);
-	// sema_down(&curr->exit_sema);
+	sema_down(&curr->exit_sema);
+	palloc_free_page(table); /* free 는 나중에 */
 
 	process_cleanup();
 }
@@ -771,6 +784,9 @@ struct thread *get_child_process(int pid)
 	struct list_elem *e;
 	int i;
 	/* 해당 pid가 존재하면 프로세스 디스크립터 반환 */
+	// for (e = list_begin(children_list);
+	// 		 e != list_end(children_list);
+	// 		 e = list_next(e))
 	for (i = 0, e = list_begin(children_list);
 			 i < list_size(children_list) && e != list_end(children_list);
 			 i++, e = list_next(e))
@@ -894,7 +910,7 @@ void argument_stack(int argc, char **argv, struct intr_frame *if_)
 	if_ : 스택 포인터를 가리키는 주소 값을 저장할 intr_frame
 	*/
 
-	char *arg_address[128]; //총 128개 저장가능
+	char *arg_address[argc - 1]; //총 128개 저장가능
 
 	/* 프로그램 이름 및 인자(문자열) push */
 	for (int k = argc - 1; k > -1; k--) //뒤에서 부터 넣어주기

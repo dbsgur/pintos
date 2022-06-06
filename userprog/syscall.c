@@ -94,38 +94,39 @@ void syscall_handler(struct intr_frame *f)
 		exit(f->R.rdi);
 		break;
 	case SYS_FORK:
-		f->R.rax = fork(f->R.rdi);
+		f->R.rax = (uint64_t)fork(f->R.rdi);
 		break;
 	case SYS_EXEC:
-		f->R.rax = exec(f->R.rdi);
+		exec(f->R.rdi);
+		// f->R.rax = (uint64_t)exec(f->R.rdi);
 		break;
 	case SYS_WAIT:
-		f->R.rax = wait(f->R.rdi);
+		f->R.rax = (uint64_t)wait(f->R.rdi);
 		break;
 	case SYS_CREATE:
-		f->R.rax = create(f->R.rdi, f->R.rsi);
+		f->R.rax = (uint64_t)create(f->R.rdi, f->R.rsi);
 		break;
 	case SYS_REMOVE:
-		f->R.rax = remove(f->R.rdi);
+		f->R.rax = (uint64_t)remove(f->R.rdi);
 		break;
 	case SYS_OPEN:
-		f->R.rax = open(f->R.rdi);
+		f->R.rax = (uint64_t)open(f->R.rdi);
 		break;
 	case SYS_FILESIZE:
-		f->R.rax = filesize(f->R.rdi);
+		f->R.rax = (uint64_t)filesize(f->R.rdi);
 		break;
 	case SYS_READ:
 		/* gitbook : System calls that return a value can do so by modifying the rax member of struct intr_frame.*/
-		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+		f->R.rax = (uint64_t)read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
-		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+		f->R.rax = (uint64_t)write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_SEEK:
 		seek(f->R.rdi, f->R.rsi);
 		break;
 	case SYS_TELL:
-		f->R.rax = tell(f->R.rdi);
+		f->R.rax = (uint64_t)tell(f->R.rdi);
 		break;
 	case SYS_CLOSE:
 		close(f->R.rdi);
@@ -186,12 +187,17 @@ int exec(const char *cmd_line)
 	char *cmd_line_copy;
 	cmd_line_copy = palloc_get_page(0);
 	if (cmd_line_copy == NULL)
-		return TID_ERROR;
+	{
+		exit(-1);
+		return -1;
+	}
 	memcpy(cmd_line_copy, cmd_line, strlen(cmd_line) + 1);
 	if (process_exec(cmd_line_copy) == -1)
 	{
+		exit(-1);
 		return -1;
 	};
+	// return 1;
 }
 
 /* unsigned는 unsigned int의 축약형, unisigned는 4바이트, off_t는 음수2바이트, 양수 2바이트)*/
@@ -220,6 +226,7 @@ int open(const char *file)
 			{
 				curr->fdt[i] = f;
 				curr->next_fd = i + 1;
+				// curr->run_file = f;
 				return i;
 			}
 		}
@@ -330,8 +337,11 @@ unsigned tell(int fd)
 
 void close(int fd)
 {
+	struct file *file = thread_current()->fdt[fd];
 	lock_acquire(&filesys_lock);
-	process_close_file(fd);
+	// process_close_file(fd);
+	thread_current()->fdt[fd] = NULL;
+	file_close(file);
 	lock_release(&filesys_lock);
 }
 

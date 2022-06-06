@@ -97,8 +97,8 @@ void syscall_handler(struct intr_frame *f)
 		f->R.rax = (uint64_t)fork(f->R.rdi);
 		break;
 	case SYS_EXEC:
-		exec(f->R.rdi);
-		// f->R.rax = (uint64_t)exec(f->R.rdi);
+		// exec(f->R.rdi);
+		f->R.rax = (uint64_t)exec(f->R.rdi);
 		break;
 	case SYS_WAIT:
 		f->R.rax = (uint64_t)wait(f->R.rdi);
@@ -188,13 +188,13 @@ int exec(const char *cmd_line)
 	cmd_line_copy = palloc_get_page(0);
 	if (cmd_line_copy == NULL)
 	{
-		exit(-1);
+		// exit(-1);
 		return -1;
 	}
 	memcpy(cmd_line_copy, cmd_line, strlen(cmd_line) + 1);
 	if (process_exec(cmd_line_copy) == -1)
 	{
-		exit(-1);
+		// exit(-1);
 		return -1;
 	};
 	// return 1;
@@ -226,7 +226,6 @@ int open(const char *file)
 			{
 				curr->fdt[i] = f;
 				curr->next_fd = i + 1;
-				// curr->run_file = f;
 				return i;
 			}
 		}
@@ -339,7 +338,6 @@ void close(int fd)
 {
 	struct file *file = thread_current()->fdt[fd];
 	lock_acquire(&filesys_lock);
-	// process_close_file(fd);
 	thread_current()->fdt[fd] = NULL;
 	file_close(file);
 	lock_release(&filesys_lock);

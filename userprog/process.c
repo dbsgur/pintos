@@ -164,7 +164,6 @@ __do_fork(void *aux)
 	struct intr_frame *parent_if = &parent->temp_tf;
 	bool succ = true;
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
-	// list_push_back(&parent->children, &current->child_elem);
 
 	/* 자식 프로세스이므로 return 값을 0이로 설정 pid = 0 */
 	if_.R.rax = 0;
@@ -307,21 +306,18 @@ int process_wait(tid_t child_tid UNUSED)
 	if (children == NULL)
 		return -1;
 	/* 자식프로세스가 종료될 때까지 부모 프로세스 대기(세마포어 이용) */
-	// sema_down(&t->exit_sema);
 	sema_down(&children->wait_sema);
 	int return_exit_status = children->exit_status; /* 이것 때문에 자식이 먼저 죽으면 안돼 */
 	/* 자식 프로세스 디스크립터 삭제 */
 	list_remove(&children->child_elem);
 	sema_up(&children->exit_sema); /* 너 이제 죽어라 */
 	/* 자식 프로세스의 exit status 리턴 */
-	// printf("exit_status in wait : %d \n", children->exit_status);
 	return return_exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void process_exit(void)
 {
-	// printf("##################\n");
 	struct thread *curr = thread_current();
 	uint32_t *pd;
 	struct file **table = curr->fdt;
@@ -338,11 +334,6 @@ void process_exit(void)
 			table[cnt] = NULL;
 		}
 	}
-	// while (curr->next_fd >= 2)
-	// {
-	// 	process_close_file(curr->next_fd);
-	// 	curr->next_fd--;
-	// }
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
@@ -769,9 +760,6 @@ struct thread *get_child_process(int pid)
 	struct list_elem *e;
 	int i;
 	/* 해당 pid가 존재하면 프로세스 디스크립터 반환 */
-	// for (e = list_begin(children_list);
-	// 		 e != list_end(children_list);
-	// 		 e = list_next(e))
 	for (i = 0, e = list_begin(children_list);
 			 i < list_size(children_list) && e != list_end(children_list);
 			 i++, e = list_next(e))
